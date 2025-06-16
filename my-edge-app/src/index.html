@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Excel Operations Utility</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -17,79 +16,81 @@
         #fileInput {
             margin: 20px 0;
         }
-        #dataTable {
-            width: 80%;
-            margin: 20px auto;
-            border-collapse: collapse;
-            max-height: 400px;
-            overflow-y: auto;
-            display: block;
+        label {
+            font-size: 16px;
+            margin-right: 10px;
         }
-        #dataTable th, #dataTable td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
+        #configStatus {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 20px;
         }
-        #dataTable th {
-            background-color: #f2f2f2;
-            position: sticky;
-            top: 0;
-        }
-        #dataTable tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-        #dataTable tr:hover {
-            background-color: #f5f5f5;
+        .no-config {
+            color: red;
         }
     </style>
 </head>
 <body>
     <h1>Excel Operations Utility</h1>
-    <input type="file" id="fileInput" accept=".xlsx, .xls">
-    <div id="tableContainer"></div>
+    <label for="fileInput">Upload Configuration File:</label>
+    <input type="file" id="fileInput" accept=".json" value="Select Configuration">
+    <div id="configStatus"></div>
 
     <script>
+        // Function to update configuration status label
+        function updateConfigStatus() {
+            const config = localStorage.getItem('configuration');
+            const statusDiv = document.getElementById('configStatus');
+            if (config) {
+                statusDiv.textContent = 'Configuration Loaded';
+                statusDiv.style.color = 'black';
+            } else {
+                statusDiv.textContent = 'No Configuration Loaded';
+                statusDiv.className = 'no-config';
+            }
+        }
+
+        // Initial check for configuration status
+        updateConfigStatus();
+
+        // Handle file upload
         document.getElementById('fileInput').addEventListener('change', handleFile, false);
 
         function handleFile(event) {
             const file = event.target.files[0];
             if (!file) return;
 
+            // Check if the file is a JSON file
+            if (!file.name.endsWith('.json')) {
+                alert('Please upload a valid JSON file!');
+                return;
+            }
+
             const reader = new FileReader();
             reader.onload = function(e) {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheet = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheet];
-
-                // Convert sheet to JSON, taking only columns A to C (0-based index: 0, 1, 2)
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
-                    header: 1, 
-                    range: { s: { c: 0, r: 0 }, e: { c: 2, r: 9 } } // A1:C10
-                });
-
-                // Create table
-                let tableHTML = '<table id="dataTable"><thead><tr>';
-                ['A', 'B', 'C'].forEach(col => {
-                    tableHTML += `<th>Column ${col}</th>`;
-                });
-                tableHTML += '</tr></thead><tbody>';
-
-                // Populate table rows (up to 10)
-                jsonData.forEach(row => {
-                    tableHTML += '<tr>';
-                    for (let i = 0; i < 3; i++) {
-                        tableHTML += `<td>${row[i] !== undefined ? row[i] : ''}</td>`;
-                    }
-                    tableHTML += '</tr>';
-                });
-
-                tableHTML += '</tbody></table>';
-                document.getElementById('tableContainer').innerHTML = tableHTML;
+                try {
+                    const jsonData = JSON.parse(e.target.result);
+                    // Store the parsed JSON in localStorage
+                    localStorage.setItem('configuration', JSON.stringify(jsonData));
+                    // Update status label
+                    updateConfigStatus();
+                } catch (error) {
+                    alert('Error parsing JSON file: ' + error.message);
+                }
             };
-
-            reader.readAsArrayBuffer(file);
+            reader.readAsText(file);
         }
+
+        // Modify the file input button text
+        document.querySelector('input[type="file"]').addEventListener('DOMNodeInserted', function() {
+            const fileInput = document.querySelector('input[type="file"]');
+            const labels = document.getElementsByTagName('label');
+            for (let label of labels) {
+                if (label.htmlFor === fileInput.id) {
+                    fileInput.nextElementSibling.textContent = 'Select Configuration';
+                }
+            }
+        });
     </script>
 </body>
 </html>
