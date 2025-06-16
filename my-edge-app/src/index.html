@@ -1,256 +1,363 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome Program</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-        }
-        .paper {
-            background-color: white;
-            width: 600px;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            position: relative;
-        }
-        .header-section {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 20px;
-        }
-        .header-section h1 {
-            font-size: 24px;
-            margin: 0;
-            padding-left: 10px;
-        }
-        .header-section .right-section {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            padding-right: 10px;
-        }
-        .header-section .config-info {
-            font-size: 14px;
-            color: #888;
-            margin-top: 5px;
-        }
-        .config-section {
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            padding: 15px;
-            margin-bottom: 20px;
-        }
-        .config-section label, .config-section input, .config-section button {
-            margin: 5px 0;
-        }
-        .config-section input[type="file"] {
-            display: block;
-        }
-        .config-section .config-status {
-            font-size: 14px;
-            color: #555;
-            margin-top: 10px;
-        }
-        button {
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #b02a37;
-        }
-        select {
-            padding: 5px;
-            border-radius: 4px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Excel File Processor</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f4f4f4;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    .tab-container {
+      overflow: hidden;
+      background-color: #ddd;
+      border-radius: 8px 8px 0 0;
+    }
+    .tab-container button {
+      background-color: inherit;
+      float: left;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      padding: 14px 16px;
+      transition: 0.3s;
+      font-size: 16px;
+    }
+    .tab-container button:hover {
+      background-color: #ccc;
+    }
+    .tab-container button.active {
+      background-color: #FFC107; /* Shell logo yellow */
+      color: white;
+    }
+    .tab-content {
+      display: none;
+      padding: 20px;
+      background-color: white;
+      border-radius: 0 0 8px 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .upload-container {
+      background-color: white;
+      padding: 20px;
+    }
+    .instructions {
+      margin-bottom: 20px;
+      color: #333;
+      line-height: 1.6;
+    }
+    .file-input {
+      margin: 20px 0;
+      display: block;
+      position: relative;
+    }
+    .file-input-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .file-input-table td {
+      padding: 10px 20px 10px 0;
+      vertical-align: middle;
+    }
+    input[type="file"] {
+      font-size: 14px;
+      color: #333;
+    }
+    input[type="file"]::-webkit-file-upload-button {
+      background-color: #B0C4DE; /* Pastel blue */
+      padding: 8px 12px;
+      border-radius: 12px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      border: none;
+      cursor: pointer;
+      color: #333;
+      font-size: 14px;
+    }
+    input[type="file"]::-webkit-file-upload-button:hover {
+      background-color: #A3BFFA;
+    }
+    .check-mark {
+      color: #3c763d; /* Green for check mark */
+      font-size: 16px;
+      margin-left: 10px;
+      display: none;
+    }
+    .row-count {
+      font-size: 14px;
+      color: #666;
+      margin-left: 5px;
+      display: none;
+    }
+    .schema-box {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: left;
+      font-size: 14px;
+      border: none;
+      display: none;
+    }
+    .schema-box.processed {
+      border: 1px solid #ccc;
+      display: block;
+    }
+    .warning {
+      color: #e65100;
+      margin-bottom: 10px;
+    }
+    .warning-detail {
+      color: #e65100;
+      margin-top: 5px;
+      margin-left: 20px;
+    }
+    .error {
+      color: #a94442;
+      margin-bottom: 10px;
+    }
+    .schema-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .schema-table th, .schema-table td {
+      padding: 8px;
+      text-align: left;
+      color: #666;
+    }
+    .schema-table th {
+      font-weight: bold;
+      color: #333;
+    }
+  </style>
 </head>
 <body>
-    <div class="paper">
-        <div class="header-section">
-            <h1 id="header-title">Welcome to My Program</h1>
-            <div class="right-section">
-                <select id="languageSelect" onchange="changeLanguage()">
-                    <option value="en">English</option>
-                    <option value="de">German</option>
-                    <option value="nl">Dutch</option>
-                </select>
-                <div class="config-info" id="configInfo"></div>
-            </div>
-        </div>
-        <div class="config-section">
-            <label id="upload-label" for="configUpload">Upload Configuration (JSON):</label>
-            <input type="file" id="configUpload" accept=".json">
-            <div class="config-status" id="configStatus">No configuration loaded.</div>
-            <button id="clear-button" onclick="clearConfig()">Clear Configuration</button>
-        </div>
+  <h1>Excel File Processor</h1>
+  <div class="tab-container">
+    <button class="tab-link active" onclick="openTab(event, 'FileSelection')">File Selection</button>
+  </div>
+
+  <div id="FileSelection" class="tab-content active">
+    <div class="upload-container">
+      <div class="instructions">
+        Please upload two versions of the Excel files: the old version and the new version. 
+        Each file must have a first row containing unique column headers. Subsequent rows should contain the data. 
+        Only the first sheet of each Excel file will be processed; all other sheets will be discarded.
+      </div>
+      <table class="file-input-table">
+        <tr>
+          <td>
+            <label for="file1" class="file-input">
+              Old File:
+              <input type="file" id="file1" accept=".xlsx">
+              <span id="check1" class="check-mark">✔</span>
+              <span id="rowCount1" class="row-count"></span>
+            </label>
+          </td>
+          <td>
+            <label for="file2" class="file-input">
+              New File:
+              <input type="file" id="file2" accept=".xlsx">
+              <span id="check2" class="check-mark">✔</span>
+              <span id="rowCount2" class="row-count"></span>
+            </label>
+          </td>
+          <td></td>
+        </tr>
+      </table>
+      <div id="messages"></div>
+      <div id="schema" class="schema-box">
+        <table id="schema-table" class="schema-table"></table>
+      </div>
     </div>
+  </div>
 
-    <script>
-        // Language dictionaries
-        const languageDictionaries = {
-            en: {
-                header: {
-                    title: "Welcome to My Program"
-                },
-                config: {
-                    uploadLabel: "Upload Configuration (JSON):",
-                    statusNoConfig: "No configuration loaded.",
-                    statusLoadedFile: "Configuration loaded from file.",
-                    statusLoadedStorage: "Configuration loaded from storage.",
-                    statusInvalidJson: "Error: Invalid JSON file.",
-                    statusInvalidFormat: "Error: Invalid JSON format. Expected 'settings' with 'version'.",
-                    statusErrorStorage: "Error loading configuration from storage.",
-                    clearButton: "Clear Configuration"
-                }
-            },
-            de: {
-                header: {
-                    title: "Willkommen zu meinem Programm"
-                },
-                config: {
-                    uploadLabel: "Konfiguration hochladen (JSON):",
-                    statusNoConfig: "Keine Konfiguration geladen.",
-                    statusLoadedFile: "Konfiguration aus Datei geladen.",
-                    statusLoadedStorage: "Konfiguration aus Speicher geladen.",
-                    statusInvalidJson: "Fehler: Ungültige JSON-Datei.",
-                    statusInvalidFormat: "Fehler: Ungültiges JSON-Format. Erwartet 'settings' mit 'version'.",
-                    statusErrorStorage: "Fehler beim Laden der Konfiguration aus dem Speicher.",
-                    clearButton: "Konfiguration löschen"
-                }
-            },
-            nl: {
-                header: {
-                    title: "Welkom bij mijn programma"
-                },
-                config: {
-                    uploadLabel: "Configuratie uploaden (JSON):",
-                    statusNoConfig: "Geen configuratie geladen.",
-                    statusLoadedFile: "Configuratie geladen uit bestand.",
-                    statusLoadedStorage: "Configuratie geladen uit opslag.",
-                    statusInvalidJson: "Fout: Ongeldig JSON-bestand.",
-                    statusInvalidFormat: "Fout: Ongeldig JSON-formaat. Verwacht 'settings' met 'version'.",
-                    statusErrorStorage: "Fout bij het laden van de configuratie uit opslag.",
-                    clearButton: "Configuratie wissen"
-                }
-            }
-        };
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script>
+    let data1 = null;
+    let data2 = null;
 
-        // Load configuration and language on page load
-        window.onload = function() {
-            const savedLanguage = localStorage.getItem('selectedLanguage') || 'en';
-            document.getElementById('languageSelect').value = savedLanguage;
-            changeLanguage(); // Apply language
+    function openTab(evt, tabName) {
+      const tabContents = document.getElementsByClassName("tab-content");
+      for (let i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+      }
+      const tabLinks = document.getElementsByClassName("tab-link");
+      for (let i = 0; i < tabLinks.length; i++) {
+        tabLinks[i].classList.remove("active");
+      }
+      document.getElementById(tabName).classList.add("active");
+      evt.currentTarget.classList.add("active");
+    }
 
-            const savedConfig = localStorage.getItem('userConfig');
-            if (savedConfig) {
-                try {
-                    const config = JSON.parse(savedConfig);
-                    if (config.settings && config.settings.version) {
-                        updateConfigInfo(config.settings.version);
-                        updateConfigStatus(languageDictionaries[savedLanguage].config.statusLoadedStorage);
-                    } else {
-                        updateConfigStatus(languageDictionaries[savedLanguage].config.statusInvalidFormat);
-                    }
-                } catch (e) {
-                    updateConfigStatus(languageDictionaries[savedLanguage].config.statusErrorStorage);
-                }
-            }
-        };
+    function updateMessages(messages, isError = false, isWarning = false) {
+      const messagesDiv = document.getElementById('messages');
+      messagesDiv.innerHTML = '';
 
-        // Handle file upload
-        document.getElementById('configUpload').addEventListener('change', function(event) {
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        const config = JSON.parse(e.target.result);
-                        const selectedLanguage = document.getElementById('languageSelect').value;
-                        if (config.settings && config.settings.version) {
-                            localStorage.setItem('userConfig', JSON.stringify(config));
-                            updateConfigInfo(config.settings.version);
-                            updateConfigStatus(languageDictionaries[selectedLanguage].config.statusLoadedFile);
-                        } else {
-                            updateConfigStatus(languageDictionaries[selectedLanguage].config.statusInvalidFormat);
-                        }
-                    } catch (error) {
-                        updateConfigStatus(languageDictionaries[selectedLanguage].config.statusInvalidJson);
-                    }
-                };
-                reader.readAsText(file);
-            }
+      // Add messages
+      messages.forEach(message => {
+        const messageDiv = document.createElement('div');
+        messageDiv.textContent = message.message || message;
+        if (isError) {
+          messageDiv.className = 'error';
+        } else if (isWarning) {
+          messageDiv.className = message.isDetail ? 'warning-detail' : 'warning';
+        }
+        messagesDiv.appendChild(messageDiv);
+      });
+    }
+
+    function updateSchema(headers1, headers2) {
+      const schemaDiv = document.getElementById('schema');
+      const schemaTable = document.getElementById('schema-table');
+      schemaTable.innerHTML = '';
+      schemaDiv.classList.add('processed');
+
+      // Create header row
+      const headerRow = document.createElement('tr');
+      const th1 = document.createElement('th');
+      const th2 = document.createElement('th');
+      th1.textContent = 'Old File Columns';
+      th2.textContent = 'New File Columns';
+      headerRow.appendChild(th1);
+      headerRow.appendChild(th2);
+      schemaTable.appendChild(headerRow);
+
+      // Add header rows
+      const maxLength = Math.max(headers1.length, headers2.length);
+      for (let i = 0; i < maxLength; i++) {
+        const row = document.createElement('tr');
+        const td1 = document.createElement('td');
+        const td2 = document.createElement('td');
+        td1.textContent = headers1[i] || '';
+        td2.textContent = headers2[i] || '';
+        row.appendChild(td1);
+        row.appendChild(td2);
+        schemaTable.appendChild(row);
+      }
+    }
+
+    async function readExcelFile(file) {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        return { data: jsonData, headers: Object.keys(jsonData[0] || {}) };
+      } catch (error) {
+        throw new Error(`Error reading ${file.name}: ${error.message}`);
+      }
+    }
+
+    function compareHeaders(headers1, headers2, fileName1, fileName2) {
+      const uniqueToFile1 = headers1.filter(h => !headers2.includes(h));
+      const uniqueToFile2 = headers2.filter(h => !headers1.includes(h));
+
+      if (uniqueToFile1.length === 0 && uniqueToFile2.length === 0) {
+        return { isConsistent: true };
+      }
+
+      const messages = ['Warning: The uploaded files have different column headers.'];
+      
+      if (uniqueToFile1.length > 0) {
+        messages.push({
+          message: `Old file (${fileName1}) contains columns not present in the new file: ${uniqueToFile1.join(', ')}.`,
+          isDetail: true
         });
+      }
+      
+      if (uniqueToFile2.length > 0) {
+        messages.push({
+          message: `New file (${fileName2}) contains columns not present in the old file: ${uniqueToFile2.join(', ')}.`,
+          isDetail: true
+        });
+      }
 
-        // Change language
-        function changeLanguage() {
-            const selectedLanguage = document.getElementById('languageSelect').value;
-            localStorage.setItem('selectedLanguage', selectedLanguage);
-            const dict = languageDictionaries[selectedLanguage];
+      return { isConsistent: false, messages };
+    }
 
-            // Update header
-            document.getElementById('header-title').textContent = dict.header.title;
+    async function processFiles() {
+      const fileInput1 = document.getElementById('file1');
+      const fileInput2 = document.getElementById('file2');
+      const rowCount1 = document.getElementById('rowCount1');
+      const rowCount2 = document.getElementById('rowCount2');
 
-            // Update config section
-            document.getElementById('upload-label').textContent = dict.config.uploadLabel;
-            document.getElementById('clear-button').textContent = dict.config.clearButton;
-            
-            // Update status if no config is loaded
-            if (!localStorage.getItem('userConfig')) {
-                updateConfigStatus(dict.config.statusNoConfig);
-            }
+      if (!fileInput1.files.length || !fileInput2.files.length) {
+        updateMessages(['Please upload both Excel files.'], true);
+        document.getElementById('schema').classList.remove('processed');
+        rowCount1.style.display = 'none';
+        rowCount2.style.display = 'none';
+        return;
+      }
 
-            // Update config info
-            const savedConfig = localStorage.getItem('userConfig');
-            if (savedConfig) {
-                try {
-                    const config = JSON.parse(savedConfig);
-                    if (config.settings && config.settings.version) {
-                        updateConfigInfo(config.settings.version);
-                    }
-                } catch (e) {
-                    // No update needed if config is invalid
-                }
-            } else {
-                updateConfigInfo('');
-            }
+      try {
+        // Read and load both files into memory
+        const file1Result = await readExcelFile(fileInput1.files[0]);
+        const file2Result = await readExcelFile(fileInput2.files[0]);
+        data1 = file1Result.data;
+        data2 = file2Result.data;
+
+        // Update row counts next to file inputs
+        rowCount1.textContent = `${data1.length} rows`;
+        rowCount2.textContent = `${data2.length} rows`;
+        rowCount1.style.display = 'inline';
+        rowCount2.style.display = 'inline';
+
+        // Update schema table
+        updateSchema(file1Result.headers, file2Result.headers);
+
+        // Compare headers
+        const headerComparison = compareHeaders(
+          file1Result.headers,
+          file2Result.headers,
+          fileInput1.files[0].name,
+          fileInput2.files[0].name
+        );
+
+        if (!headerComparison.isConsistent) {
+          // Display only warning messages
+          updateMessages(headerComparison.messages, false, true);
+        } else {
+          // Clear messages since no warnings or errors
+          updateMessages([]);
         }
 
-        // Clear configuration
-        function clearConfig() {
-            localStorage.removeItem('userConfig');
-            const selectedLanguage = document.getElementById('languageSelect').value;
-            updateConfigInfo('');
-            updateConfigStatus(languageDictionaries[selectedLanguage].config.statusNoConfig);
-        }
+        console.log('File 1 Data:', data1);
+        console.log('File 2 Data:', data2);
+      } catch (error) {
+        updateMessages([error.message], true);
+        document.getElementById('schema').classList.remove('processed');
+        rowCount1.style.display = 'none';
+        rowCount2.style.display = 'none';
+      }
+    }
 
-        // Update configuration info in header
-        function updateConfigInfo(version) {
-            const configInfo = document.getElementById('configInfo');
-            if (version) {
-                configInfo.textContent = `Version: ${version}`;
-            } else {
-                configInfo.textContent = '';
-            }
-        }
+    // Add event listeners to show check mark and trigger processing
+    document.getElementById('file1').addEventListener('change', function() {
+      const checkMark = document.getElementById('check1');
+      checkMark.style.display = this.files.length > 0 ? 'inline' : 'none';
+      if (this.files.length > 0 && document.getElementById('file2').files.length > 0) {
+        processFiles();
+      }
+    });
 
-        // Update configuration status message
-        function updateConfigStatus(message) {
-            document.getElementById('configStatus').textContent = message;
-        }
-    </script>
+    document.getElementById('file2').addEventListener('change', function() {
+      const checkMark = document.getElementById('check2');
+      checkMark.style.display = this.files.length > 0 ? 'inline' : 'none';
+      if (this.files.length > 0 && document.getElementById('file1').files.length > 0) {
+        processFiles();
+      }
+    });
+  </script>
 </body>
 </html>
