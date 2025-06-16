@@ -99,6 +99,20 @@
       margin-left: 5px;
       display: none;
     }
+    .drag-area {
+      border: 2px dashed #B0C4DE; /* Pastel blue dashed border */
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      color: #666;
+      font-size: 14px;
+      margin-top: 10px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    .drag-area.drag-over {
+      background-color: #E6EFFF; /* Light pastel blue when dragging over */
+    }
     .schema-box {
       margin-top: 20px;
       padding: 15px;
@@ -162,6 +176,7 @@
               <span id="check1" class="check-mark">✔</span>
               <span id="rowCount1" class="row-count"></span>
             </label>
+            <div id="dragArea1" class="drag-area">Drag file here</div>
           </td>
           <td>
             <label for="file2" class="file-input">
@@ -170,6 +185,7 @@
               <span id="check2" class="check-mark">✔</span>
               <span id="rowCount2" class="row-count"></span>
             </label>
+            <div id="dragArea2" class="drag-area">Drag file here</div>
           </td>
           <td></td>
         </tr>
@@ -203,7 +219,6 @@
       const messagesDiv = document.getElementById('messages');
       messagesDiv.innerHTML = '';
 
-      // Add messages
       messages.forEach(message => {
         const messageDiv = document.createElement('div');
         messageDiv.textContent = message.message || message;
@@ -222,7 +237,6 @@
       schemaTable.innerHTML = '';
       schemaDiv.classList.add('processed');
 
-      // Create header row
       const headerRow = document.createElement('tr');
       const th1 = document.createElement('th');
       const th2 = document.createElement('th');
@@ -232,7 +246,6 @@
       headerRow.appendChild(th2);
       schemaTable.appendChild(headerRow);
 
-      // Add header rows
       const maxLength = Math.max(headers1.length, headers2.length);
       for (let i = 0; i < maxLength; i++) {
         const row = document.createElement('tr');
@@ -301,22 +314,18 @@
       }
 
       try {
-        // Read and load both files into memory
         const file1Result = await readExcelFile(fileInput1.files[0]);
         const file2Result = await readExcelFile(fileInput2.files[0]);
         data1 = file1Result.data;
         data2 = file2Result.data;
 
-        // Update row counts next to file inputs
         rowCount1.textContent = `${data1.length} rows`;
         rowCount2.textContent = `${data2.length} rows`;
         rowCount1.style.display = 'inline';
         rowCount2.style.display = 'inline';
 
-        // Update schema table
         updateSchema(file1Result.headers, file2Result.headers);
 
-        // Compare headers
         const headerComparison = compareHeaders(
           file1Result.headers,
           file2Result.headers,
@@ -325,10 +334,8 @@
         );
 
         if (!headerComparison.isConsistent) {
-          // Display only warning messages
           updateMessages(headerComparison.messages, false, true);
         } else {
-          // Clear messages since no warnings or errors
           updateMessages([]);
         }
 
@@ -342,7 +349,33 @@
       }
     }
 
-    // Add event listeners to show check mark and trigger processing
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.currentTarget.classList.add('drag-over');
+    }
+
+    function handleDragLeave(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.currentTarget.classList.remove('drag-over');
+    }
+
+    function handleDrop(e, fileInputId) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.currentTarget.classList.remove('drag-over');
+
+      const files = e.dataTransfer.files;
+      if (files.length > 0 && files[0].name.endsWith('.xlsx')) {
+        const fileInput = document.getElementById(fileInputId);
+        fileInput.files = files; // Set the file to the input
+        const changeEvent = new Event('change', { bubbles: true });
+        fileInput.dispatchEvent(changeEvent); // Trigger change event
+      }
+    }
+
+    // Add event listeners for file inputs
     document.getElementById('file1').addEventListener('change', function() {
       const checkMark = document.getElementById('check1');
       checkMark.style.display = this.files.length > 0 ? 'inline' : 'none';
@@ -358,6 +391,18 @@
         processFiles();
       }
     });
+
+    // Add event listeners for drag-and-drop areas
+    const dragArea1 = document.getElementById('dragArea1');
+    const dragArea2 = document.getElementById('dragArea2');
+
+    dragArea1.addEventListener('dragover', handleDragOver);
+    dragArea1.addEventListener('dragleave', handleDragLeave);
+    dragArea1.addEventListener('drop', (e) => handleDrop(e, 'file1'));
+
+    dragArea2.addEventListener('dragover', handleDragOver);
+    dragArea2.addEventListener('dragleave', handleDragLeave);
+    dragArea2.addEventListener('drop', (e) => handleDrop(e, 'file2'));
   </script>
 </body>
 </html>
