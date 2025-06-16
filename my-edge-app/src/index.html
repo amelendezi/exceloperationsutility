@@ -3,94 +3,254 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Excel Operations Utility</title>
+    <title>Welcome Program</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 20px;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
         }
-        h1 {
-            color: #333;
+        .paper {
+            background-color: white;
+            width: 600px;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            position: relative;
         }
-        #fileInput {
-            margin: 20px 0;
+        .header-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
         }
-        label {
-            font-size: 16px;
-            margin-right: 10px;
+        .header-section h1 {
+            font-size: 24px;
+            margin: 0;
+            padding-left: 10px;
         }
-        #configStatus {
-            font-size: 18px;
-            font-weight: bold;
-            margin-top: 20px;
+        .header-section .right-section {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            padding-right: 10px;
         }
-        .no-config {
-            color: red;
+        .header-section .config-info {
+            font-size: 14px;
+            color: #888;
+            margin-top: 5px;
+        }
+        .config-section {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .config-section label, .config-section input, .config-section button {
+            margin: 5px 0;
+        }
+        .config-section input[type="file"] {
+            display: block;
+        }
+        .config-section .config-status {
+            font-size: 14px;
+            color: #555;
+            margin-top: 10px;
+        }
+        button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #b02a37;
+        }
+        select {
+            padding: 5px;
+            border-radius: 4px;
         }
     </style>
 </head>
 <body>
-    <h1>Excel Operations Utility</h1>
-    <label for="fileInput">Upload Configuration File:</label>
-    <input type="file" id="fileInput" accept=".json" value="Select Configuration">
-    <div id="configStatus"></div>
+    <div class="paper">
+        <div class="header-section">
+            <h1 id="header-title">Welcome to My Program</h1>
+            <div class="right-section">
+                <select id="languageSelect" onchange="changeLanguage()">
+                    <option value="en">English</option>
+                    <option value="de">German</option>
+                    <option value="nl">Dutch</option>
+                </select>
+                <div class="config-info" id="configInfo"></div>
+            </div>
+        </div>
+        <div class="config-section">
+            <label id="upload-label" for="configUpload">Upload Configuration (JSON):</label>
+            <input type="file" id="configUpload" accept=".json">
+            <div class="config-status" id="configStatus">No configuration loaded.</div>
+            <button id="clear-button" onclick="clearConfig()">Clear Configuration</button>
+        </div>
+    </div>
 
     <script>
-        // Function to update configuration status label
-        function updateConfigStatus() {
-            const config = localStorage.getItem('configuration');
-            const statusDiv = document.getElementById('configStatus');
-            if (config) {
-                statusDiv.textContent = 'Configuration Loaded';
-                statusDiv.style.color = 'black';
-            } else {
-                statusDiv.textContent = 'No Configuration Loaded';
-                statusDiv.className = 'no-config';
+        // Language dictionaries
+        const languageDictionaries = {
+            en: {
+                header: {
+                    title: "Welcome to My Program"
+                },
+                config: {
+                    uploadLabel: "Upload Configuration (JSON):",
+                    statusNoConfig: "No configuration loaded.",
+                    statusLoadedFile: "Configuration loaded from file.",
+                    statusLoadedStorage: "Configuration loaded from storage.",
+                    statusInvalidJson: "Error: Invalid JSON file.",
+                    statusInvalidFormat: "Error: Invalid JSON format. Expected 'settings' with 'version'.",
+                    statusErrorStorage: "Error loading configuration from storage.",
+                    clearButton: "Clear Configuration"
+                }
+            },
+            de: {
+                header: {
+                    title: "Willkommen zu meinem Programm"
+                },
+                config: {
+                    uploadLabel: "Konfiguration hochladen (JSON):",
+                    statusNoConfig: "Keine Konfiguration geladen.",
+                    statusLoadedFile: "Konfiguration aus Datei geladen.",
+                    statusLoadedStorage: "Konfiguration aus Speicher geladen.",
+                    statusInvalidJson: "Fehler: Ungültige JSON-Datei.",
+                    statusInvalidFormat: "Fehler: Ungültiges JSON-Format. Erwartet 'settings' mit 'version'.",
+                    statusErrorStorage: "Fehler beim Laden der Konfiguration aus dem Speicher.",
+                    clearButton: "Konfiguration löschen"
+                }
+            },
+            nl: {
+                header: {
+                    title: "Welkom bij mijn programma"
+                },
+                config: {
+                    uploadLabel: "Configuratie uploaden (JSON):",
+                    statusNoConfig: "Geen configuratie geladen.",
+                    statusLoadedFile: "Configuratie geladen uit bestand.",
+                    statusLoadedStorage: "Configuratie geladen uit opslag.",
+                    statusInvalidJson: "Fout: Ongeldig JSON-bestand.",
+                    statusInvalidFormat: "Fout: Ongeldig JSON-formaat. Verwacht 'settings' met 'version'.",
+                    statusErrorStorage: "Fout bij het laden van de configuratie uit opslag.",
+                    clearButton: "Configuratie wissen"
+                }
             }
-        }
+        };
 
-        // Initial check for configuration status
-        updateConfigStatus();
+        // Load configuration and language on page load
+        window.onload = function() {
+            const savedLanguage = localStorage.getItem('selectedLanguage') || 'en';
+            document.getElementById('languageSelect').value = savedLanguage;
+            changeLanguage(); // Apply language
+
+            const savedConfig = localStorage.getItem('userConfig');
+            if (savedConfig) {
+                try {
+                    const config = JSON.parse(savedConfig);
+                    if (config.settings && config.settings.version) {
+                        updateConfigInfo(config.settings.version);
+                        updateConfigStatus(languageDictionaries[savedLanguage].config.statusLoadedStorage);
+                    } else {
+                        updateConfigStatus(languageDictionaries[savedLanguage].config.statusInvalidFormat);
+                    }
+                } catch (e) {
+                    updateConfigStatus(languageDictionaries[savedLanguage].config.statusErrorStorage);
+                }
+            }
+        };
 
         // Handle file upload
-        document.getElementById('fileInput').addEventListener('change', handleFile, false);
-
-        function handleFile(event) {
+        document.getElementById('configUpload').addEventListener('change', function(event) {
             const file = event.target.files[0];
-            if (!file) return;
-
-            // Check if the file is a JSON file
-            if (!file.name.endsWith('.json')) {
-                alert('Please upload a valid JSON file!');
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const jsonData = JSON.parse(e.target.result);
-                    // Store the parsed JSON in localStorage
-                    localStorage.setItem('configuration', JSON.stringify(jsonData));
-                    // Update status label
-                    updateConfigStatus();
-                } catch (error) {
-                    alert('Error parsing JSON file: ' + error.message);
-                }
-            };
-            reader.readAsText(file);
-        }
-
-        // Modify the file input button text
-        document.querySelector('input[type="file"]').addEventListener('DOMNodeInserted', function() {
-            const fileInput = document.querySelector('input[type="file"]');
-            const labels = document.getElementsByTagName('label');
-            for (let label of labels) {
-                if (label.htmlFor === fileInput.id) {
-                    fileInput.nextElementSibling.textContent = 'Select Configuration';
-                }
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const config = JSON.parse(e.target.result);
+                        const selectedLanguage = document.getElementById('languageSelect').value;
+                        if (config.settings && config.settings.version) {
+                            localStorage.setItem('userConfig', JSON.stringify(config));
+                            updateConfigInfo(config.settings.version);
+                            updateConfigStatus(languageDictionaries[selectedLanguage].config.statusLoadedFile);
+                        } else {
+                            updateConfigStatus(languageDictionaries[selectedLanguage].config.statusInvalidFormat);
+                        }
+                    } catch (error) {
+                        updateConfigStatus(languageDictionaries[selectedLanguage].config.statusInvalidJson);
+                    }
+                };
+                reader.readAsText(file);
             }
         });
+
+        // Change language
+        function changeLanguage() {
+            const selectedLanguage = document.getElementById('languageSelect').value;
+            localStorage.setItem('selectedLanguage', selectedLanguage);
+            const dict = languageDictionaries[selectedLanguage];
+
+            // Update header
+            document.getElementById('header-title').textContent = dict.header.title;
+
+            // Update config section
+            document.getElementById('upload-label').textContent = dict.config.uploadLabel;
+            document.getElementById('clear-button').textContent = dict.config.clearButton;
+            
+            // Update status if no config is loaded
+            if (!localStorage.getItem('userConfig')) {
+                updateConfigStatus(dict.config.statusNoConfig);
+            }
+
+            // Update config info
+            const savedConfig = localStorage.getItem('userConfig');
+            if (savedConfig) {
+                try {
+                    const config = JSON.parse(savedConfig);
+                    if (config.settings && config.settings.version) {
+                        updateConfigInfo(config.settings.version);
+                    }
+                } catch (e) {
+                    // No update needed if config is invalid
+                }
+            } else {
+                updateConfigInfo('');
+            }
+        }
+
+        // Clear configuration
+        function clearConfig() {
+            localStorage.removeItem('userConfig');
+            const selectedLanguage = document.getElementById('languageSelect').value;
+            updateConfigInfo('');
+            updateConfigStatus(languageDictionaries[selectedLanguage].config.statusNoConfig);
+        }
+
+        // Update configuration info in header
+        function updateConfigInfo(version) {
+            const configInfo = document.getElementById('configInfo');
+            if (version) {
+                configInfo.textContent = `Version: ${version}`;
+            } else {
+                configInfo.textContent = '';
+            }
+        }
+
+        // Update configuration status message
+        function updateConfigStatus(message) {
+            document.getElementById('configStatus').textContent = message;
+        }
     </script>
 </body>
 </html>
