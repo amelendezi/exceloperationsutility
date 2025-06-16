@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Operations Utility</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        #fileInput {
+            margin: 20px 0;
+        }
+        #dataTable {
+            width: 80%;
+            margin: 20px auto;
+            border-collapse: collapse;
+            max-height: 400px;
+            overflow-y: auto;
+            display: block;
+        }
+        #dataTable th, #dataTable td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        #dataTable th {
+            background-color: #f2f2f2;
+            position: sticky;
+            top: 0;
+        }
+        #dataTable tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        #dataTable tr:hover {
+            background-color: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+    <h1>Excel Operations Utility</h1>
+    <input type="file" id="fileInput" accept=".xlsx, .xls">
+    <div id="tableContainer"></div>
+
+    <script>
+        document.getElementById('fileInput').addEventListener('change', handleFile, false);
+
+        function handleFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheet = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheet];
+
+                // Convert sheet to JSON, taking only columns A to C (0-based index: 0, 1, 2)
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+                    header: 1, 
+                    range: { s: { c: 0, r: 0 }, e: { c: 2, r: 9 } } // A1:C10
+                });
+
+                // Create table
+                let tableHTML = '<table id="dataTable"><thead><tr>';
+                ['A', 'B', 'C'].forEach(col => {
+                    tableHTML += `<th>Column ${col}</th>`;
+                });
+                tableHTML += '</tr></thead><tbody>';
+
+                // Populate table rows (up to 10)
+                jsonData.forEach(row => {
+                    tableHTML += '<tr>';
+                    for (let i = 0; i < 3; i++) {
+                        tableHTML += `<td>${row[i] !== undefined ? row[i] : ''}</td>`;
+                    }
+                    tableHTML += '</tr>';
+                });
+
+                tableHTML += '</tbody></table>';
+                document.getElementById('tableContainer').innerHTML = tableHTML;
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+    </script>
+</body>
+</html>
