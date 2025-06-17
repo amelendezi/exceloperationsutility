@@ -20,22 +20,39 @@
       overflow: hidden;
       background-color: #ddd;
       border-radius: 8px 8px 0 0;
+      display: flex; /* Use flex to align tabs */
     }
     .tab-container button {
       background-color: inherit;
-      float: left;
       border: none;
       outline: none;
       cursor: pointer;
       padding: 14px 16px;
       transition: 0.3s;
       font-size: 16px;
+      border-bottom-left-radius: 8px; /* Rounded bottom corners */
+      border-bottom-right-radius: 8px;
+      margin-right: 2px; /* Small gap between tabs */
+      flex-grow: 1; /* Distribute space evenly */
+      text-align: center;
     }
     .tab-container button:hover {
       background-color: #ccc;
     }
     .tab-container button.active {
-      background-color: #FFC107; /* Shell logo yellow */
+      background-color: #FFC107; /* Shell logo yellow for File Selection */
+      color: white;
+    }
+    .tab-container button.data-tab {
+      display: none; /* Hide Data tab initially */
+      background-color: #C8E6C9; /* Slightly greyed light green when not active */
+      color: #333;
+    }
+    .tab-container button.data-tab:hover {
+      background-color: #B2DFDB; /* Slightly brighter on hover */
+    }
+    .tab-container button.data-tab.active {
+      background-color: #81C784; /* Vibrant green for Data tab when active */
       color: white;
     }
     .tab-content {
@@ -100,7 +117,7 @@
       display: none;
     }
     .drag-area {
-      border: 2px dashed #B0C4DE; /* Pastel blue dashed border */
+      border: 2px dashed #B0C4DE;
       border-radius: 8px;
       padding: 20px;
       text-align: center;
@@ -111,7 +128,7 @@
       transition: background-color 0.3s;
     }
     .drag-area.drag-over {
-      background-color: #E6EFFF; /* Light pastel blue when dragging over */
+      background-color: #E6EFFF;
     }
     .schema-box {
       margin-top: 20px;
@@ -152,12 +169,70 @@
       font-weight: bold;
       color: #333;
     }
+    .data-view-box {
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      background-color: white;
+      max-height: 400px;
+      overflow: auto;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .data-view-header {
+      margin-bottom: 10px;
+    }
+    .data-view-header input {
+      padding: 8px;
+      width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .data-view-buttons {
+      margin-bottom: 10px;
+    }
+    .view-data-btn {
+      background-color: #B0C4DE;
+      color: #333;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-right: 10px;
+    }
+    .view-data-btn:hover {
+      background-color: #A3BFFA;
+    }
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .data-table th, .data-table td {
+      padding: 8px;
+      border: 1px solid #ddd;
+      text-align: left;
+      color: #666;
+      white-space: nowrap;
+    }
+    .data-table th {
+      background-color: #f4f4f4;
+      font-weight: bold;
+      color: #333;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    .highlight {
+      background-color: #FFFF99; /* Yellow highlight */
+    }
   </style>
 </head>
 <body>
   <h1>Excel File Processor</h1>
   <div class="tab-container">
     <button class="tab-link active" onclick="openTab(event, 'FileSelection')">File Selection</button>
+    <button id="dataTab" class="tab-link data-tab" onclick="openTab(event, 'Data')">Data</button>
   </div>
 
   <div id="FileSelection" class="tab-content active">
@@ -196,11 +271,25 @@
       </div>
     </div>
   </div>
+  <div id="Data" class="tab-content">
+    <div class="data-view-buttons">
+      <button class="view-data-btn" onclick="viewData(1)">View Old Data</button>
+      <button class="view-data-btn" onclick="viewData(2)">View New Data</button>
+    </div>
+    <div id="dataView" class="data-view-box">
+      <div class="data-view-header">
+        <input type="text" id="dataSearch" placeholder="Search data...">
+      </div>
+      <table id="data-table" class="data-table"></table>
+    </div>
+  </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script>
     let data1 = null;
     let data2 = null;
+    let currentFileIndex = null;
+    let currentData = null;
 
     function openTab(evt, tabName) {
       const tabContents = document.getElementsByClassName("tab-content");
@@ -259,6 +348,67 @@
       }
     }
 
+    function renderDataTable(data, headers, searchTerm = '') {
+      const dataTable = document.getElementById('data-table');
+      dataTable.innerHTML = '';
+
+      const headerRow = document.createElement('tr');
+      headers.forEach(header => {
+        const th = document.createElement('th');
+        th.textContent = header;
+        headerRow.appendChild(th);
+      });
+      dataTable.appendChild(headerRow);
+
+      const filteredData = searchTerm
+        ? data.filter(row => 
+            Object.values(row).some(value => 
+              value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+            )
+          )
+        : data;
+
+      filteredData.forEach(row => {
+        const dataRow = document.createElement('tr');
+        headers.forEach(header => {
+          const td = document.createElement('td');
+          let cellContent = row[header] || '';
+          if (searchTerm && cellContent) {
+            const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+            cellContent = cellContent.toString().replace(regex, '<span class="highlight">$1</span>');
+            td.innerHTML = cellContent;
+          } else {
+            td.textContent = cellContent;
+          }
+          dataRow.appendChild(td);
+        });
+        dataTable.appendChild(dataRow);
+      });
+    }
+
+    function viewData(fileIndex) {
+      const dataViewDiv = document.getElementById('dataView');
+      dataViewDiv.classList.add('active');
+
+      currentFileIndex = fileIndex;
+      currentData = fileIndex === 1 ? data1 : data2;
+      const headers = fileIndex === 1 ? Object.keys(data1[0] || {}) : Object.keys(data2[0] || {});
+
+      renderDataTable(currentData, headers, document.getElementById('dataSearch').value);
+    }
+
+    function hideDataView() {
+      const dataViewDiv = document.getElementById('dataView');
+      dataViewDiv.classList.remove('active');
+      document.getElementById('data-table').innerHTML = '';
+      document.getElementById('dataSearch').value = '';
+    }
+
+    function toggleDataTab(show) {
+      const dataTab = document.getElementById('dataTab');
+      dataTab.style.display = show ? 'inline-block' : 'none';
+    }
+
     async function readExcelFile(file) {
       try {
         const arrayBuffer = await file.arrayBuffer();
@@ -310,6 +460,8 @@
         document.getElementById('schema').classList.remove('processed');
         rowCount1.style.display = 'none';
         rowCount2.style.display = 'none';
+        hideDataView();
+        toggleDataTab(false);
         return;
       }
 
@@ -339,6 +491,8 @@
           updateMessages([]);
         }
 
+        toggleDataTab(true); // Show Data tab after successful load
+
         console.log('File 1 Data:', data1);
         console.log('File 2 Data:', data2);
       } catch (error) {
@@ -346,6 +500,8 @@
         document.getElementById('schema').classList.remove('processed');
         rowCount1.style.display = 'none';
         rowCount2.style.display = 'none';
+        hideDataView();
+        toggleDataTab(false);
       }
     }
 
@@ -369,16 +525,16 @@
       const files = e.dataTransfer.files;
       if (files.length > 0 && files[0].name.endsWith('.xlsx')) {
         const fileInput = document.getElementById(fileInputId);
-        fileInput.files = files; // Set the file to the input
+        fileInput.files = files;
         const changeEvent = new Event('change', { bubbles: true });
-        fileInput.dispatchEvent(changeEvent); // Trigger change event
+        fileInput.dispatchEvent(changeEvent);
       }
     }
 
-    // Add event listeners for file inputs
     document.getElementById('file1').addEventListener('change', function() {
       const checkMark = document.getElementById('check1');
       checkMark.style.display = this.files.length > 0 ? 'inline' : 'none';
+      hideDataView();
       if (this.files.length > 0 && document.getElementById('file2').files.length > 0) {
         processFiles();
       }
@@ -387,12 +543,19 @@
     document.getElementById('file2').addEventListener('change', function() {
       const checkMark = document.getElementById('check2');
       checkMark.style.display = this.files.length > 0 ? 'inline' : 'none';
+      hideDataView();
       if (this.files.length > 0 && document.getElementById('file1').files.length > 0) {
         processFiles();
       }
     });
 
-    // Add event listeners for drag-and-drop areas
+    document.getElementById('dataSearch').addEventListener('input', function() {
+      if (currentFileIndex && currentData) {
+        const headers = currentFileIndex === 1 ? Object.keys(data1[0] || {}) : Object.keys(data2[0] || {});
+        renderDataTable(currentData, headers, this.value);
+      }
+    });
+
     const dragArea1 = document.getElementById('dragArea1');
     const dragArea2 = document.getElementById('dragArea2');
 
