@@ -18,12 +18,12 @@
     }
     .tab-container {
       overflow: hidden;
-      background-color: #ddd; /* Grey fill for remaining section */
+      background-color: #ddd;
       border-radius: 8px 8px 0 0;
-      height: 46px; /* Fixed height to match tab buttons */
+      height: 46px;
     }
     .tab-container button {
-      background-color: #FFF9C4; /* Light yellow for File Selection when not active */
+      background-color: #FFF9C4;
       border: none;
       outline: none;
       cursor: pointer;
@@ -32,31 +32,31 @@
       font-size: 16px;
       border-bottom-left-radius: 8px;
       border-bottom-right-radius: 8px;
-      width: 120px; /* Default width for tabs */
-      float: left; /* Float left */
+      width: 120px;
+      float: left;
       margin-right: 2px;
       text-align: center;
     }
     .tab-container button.file-selection-tab {
-      width: 180px; /* 50% wider for File Selection tab */
+      width: 180px;
     }
     .tab-container button:hover {
-      background-color: #FFECB3; /* Slightly darker light yellow on hover */
+      background-color: #FFECB3;
     }
     .tab-container button.active {
-      background-color: #FFC107; /* Dark yellow for File Selection when active */
+      background-color: #FFC107;
       color: white;
     }
     .tab-container button.data-tab {
-      display: none; /* Hide Data tab initially */
-      background-color: #C8E6C9; /* Light green when not active */
+      display: none;
+      background-color: #C8E6C9;
       color: #333;
     }
     .tab-container button.data-tab:hover {
       background-color: #B2DFDB;
     }
     .tab-container button.data-tab.active {
-      background-color: #4CAF50; /* Dark green for Data tab when active */
+      background-color: #4CAF50;
       color: white;
     }
     .tab-content {
@@ -96,7 +96,7 @@
       color: #333;
     }
     input[type="file"]::-webkit-file-upload-button {
-      background-color: #B0C4DE; /* Pastel blue */
+      background-color: #B0C4DE;
       padding: 8px 12px;
       border-radius: 12px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -109,7 +109,7 @@
       background-color: #A3BFFA;
     }
     .check-mark {
-      color: #3c763d; /* Green for check mark */
+      color: #3c763d;
       font-size: 16px;
       margin-left: 10px;
       display: none;
@@ -173,15 +173,19 @@
       font-weight: bold;
       color: #333;
     }
+    .schema-table td.different {
+      color: #a94442;
+      font-weight: bold;
+    }
     .sub-tab-container {
       overflow: hidden;
-      background-color: #ddd; /* Grey fill for remaining section */
+      background-color: #ddd;
       border-radius: 0 0 6px 6px;
-      height: 38px; /* Fixed height to match sub-tab buttons */
+      height: 38px;
       margin-bottom: 10px;
     }
     .sub-tab-container button {
-      background-color: #e0e0e0; /* Grey when not active */
+      background-color: #e0e0e0;
       border: none;
       outline: none;
       cursor: pointer;
@@ -190,8 +194,8 @@
       font-size: 14px;
       border-bottom-left-radius: 6px;
       border-bottom-right-radius: 6px;
-      width: 100px; /* Shorter width */
-      float: left; /* Float left */
+      width: 100px;
+      float: left;
       margin-right: 2px;
       text-align: center;
     }
@@ -199,7 +203,7 @@
       background-color: #d0d0d0;
     }
     .sub-tab-container button.active {
-      background-color: #2196F3; /* Blue for active sub-tab */
+      background-color: #2196F3;
       color: white;
     }
     .sub-tab-content {
@@ -213,9 +217,9 @@
       border-radius: 8px;
       border: 1px solid: #ccc;
       background-color: white;
-      height: calc(80vh - 160px); /* 80% of viewport height minus adjusted offset */
-      overflow-y: auto; /* Vertical scroll if content exceeds height */
-      overflow-x: auto; /* Horizontal scroll for wide tables */
+      height: calc(80vh - 160px);
+      overflow-y: auto;
+      overflow-x: auto;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     .data-view-header {
@@ -256,7 +260,7 @@
       z-index: 1;
     }
     .highlight {
-      background-color: #FFFF99; /* Yellow highlight */
+      background-color: #FFFF99;
     }
   </style>
 </head>
@@ -376,7 +380,7 @@
       });
     }
 
-    function updateSchema(headers1, headers2) {
+    function updateSchema(headers1, headers2, uniqueToFile1, uniqueToFile2) {
       const schemaDiv = document.getElementById('schema');
       const schemaTable = document.getElementById('schema-table');
       schemaTable.innerHTML = '';
@@ -398,6 +402,12 @@
         const td2 = document.createElement('td');
         td1.textContent = headers1[i] || '';
         td2.textContent = headers2[i] || '';
+        if (headers1[i] && uniqueToFile1.includes(headers1[i])) {
+          td1.classList.add('different');
+        }
+        if (headers2[i] && uniqueToFile2.includes(headers2[i])) {
+          td2.classList.add('different');
+        }
         row.appendChild(td1);
         row.appendChild(td2);
         schemaTable.appendChild(row);
@@ -474,8 +484,45 @@
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        return { data: jsonData, headers: Object.keys(jsonData[0] || {}) };
+
+        // Get the range of the worksheet
+        const range = XLSX.utils.decode_range(worksheet['!ref']);
+        const headers = [];
+        const firstRow = [];
+
+        // Read the first row to extract headers, ignoring empty cells
+        for (let col = range.s.c; col <= range.e.c; col++) {
+          const cellAddress = XLSX.utils.encode_cell({ r: range.s.r, c: col });
+          const cell = worksheet[cellAddress];
+          const value = cell ? cell.v : '';
+          if (value !== '' && value !== null && value !== undefined) {
+            headers.push(value.toString());
+          } else {
+            headers.push(null);
+          }
+          firstRow.push(value);
+        }
+
+        // Filter out null headers to get non-empty headers
+        const validHeaders = headers.filter(h => h !== null);
+
+        // Convert sheet to JSON, starting from the second row to skip headers
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+          header: validHeaders, 
+          defval: '',
+          range: { s: { c: range.s.c, r: range.s.r + 1 }, e: range.e } // Start from row 2
+        });
+
+        // Map data to ensure only valid headers are included
+        const mappedData = jsonData.map(row => {
+          const newRow = {};
+          validHeaders.forEach(header => {
+            newRow[header] = row[header] || '';
+          });
+          return newRow;
+        });
+
+        return { data: mappedData, headers: validHeaders };
       } catch (error) {
         throw new Error(`Error reading ${file.name}: ${error.message}`);
       }
@@ -486,7 +533,7 @@
       const uniqueToFile2 = headers2.filter(h => !headers1.includes(h));
 
       if (uniqueToFile1.length === 0 && uniqueToFile2.length === 0) {
-        return { isConsistent: true };
+        return { isConsistent: true, uniqueToFile1: [], uniqueToFile2: [] };
       }
 
       const messages = ['Warning: The uploaded files have different column headers.'];
@@ -500,12 +547,12 @@
       
       if (uniqueToFile2.length > 0) {
         messages.push({
-          message: `New file (${fileName2}) contains columns not present in the new file: ${uniqueToFile2.join(', ')}.`,
+          message: `New file (${fileName2}) contains columns not present in the old file: ${uniqueToFile2.join(', ')}.`,
           isDetail: true
         });
       }
 
-      return { isConsistent: false, messages };
+      return { isConsistent: false, messages, uniqueToFile1, uniqueToFile2 };
     }
 
     async function processFiles() {
@@ -535,13 +582,18 @@
         rowCount1.style.display = 'inline';
         rowCount2.style.display = 'inline';
 
-        updateSchema(file1Result.headers, file2Result.headers);
-
         const headerComparison = compareHeaders(
           file1Result.headers,
           file2Result.headers,
           fileInput1.files[0].name,
           fileInput2.files[0].name
+        );
+
+        updateSchema(
+          file1Result.headers,
+          file2Result.headers,
+          headerComparison.uniqueToFile1 || [],
+          headerComparison.uniqueToFile2 || []
         );
 
         if (!headerComparison.isConsistent) {
@@ -551,7 +603,7 @@
         }
 
         toggleDataTab(true);
-        renderSubTabData('OldData'); // Render Old Data by default when files are loaded
+        renderSubTabData('OldData');
 
         console.log('File 1 Data:', data1);
         console.log('File 2 Data:', data2);
