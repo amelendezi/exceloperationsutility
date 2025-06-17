@@ -18,41 +18,45 @@
     }
     .tab-container {
       overflow: hidden;
-      background-color: #ddd;
+      background-color: #ddd; /* Grey fill for remaining section */
       border-radius: 8px 8px 0 0;
-      display: flex; /* Use flex to align tabs */
+      height: 46px; /* Fixed height to match tab buttons */
     }
     .tab-container button {
-      background-color: inherit;
+      background-color: #FFF9C4; /* Light yellow for File Selection when not active */
       border: none;
       outline: none;
       cursor: pointer;
       padding: 14px 16px;
       transition: 0.3s;
       font-size: 16px;
-      border-bottom-left-radius: 8px; /* Rounded bottom corners */
+      border-bottom-left-radius: 8px;
       border-bottom-right-radius: 8px;
-      margin-right: 2px; /* Small gap between tabs */
-      flex-grow: 1; /* Distribute space evenly */
+      width: 120px; /* Default width for tabs */
+      float: left; /* Float left */
+      margin-right: 2px;
       text-align: center;
     }
+    .tab-container button.file-selection-tab {
+      width: 180px; /* 50% wider for File Selection tab */
+    }
     .tab-container button:hover {
-      background-color: #ccc;
+      background-color: #FFECB3; /* Slightly darker light yellow on hover */
     }
     .tab-container button.active {
-      background-color: #FFC107; /* Shell logo yellow for File Selection */
+      background-color: #FFC107; /* Dark yellow for File Selection when active */
       color: white;
     }
     .tab-container button.data-tab {
       display: none; /* Hide Data tab initially */
-      background-color: #C8E6C9; /* Slightly greyed light green when not active */
+      background-color: #C8E6C9; /* Light green when not active */
       color: #333;
     }
     .tab-container button.data-tab:hover {
-      background-color: #B2DFDB; /* Slightly brighter on hover */
+      background-color: #B2DFDB;
     }
     .tab-container button.data-tab.active {
-      background-color: #81C784; /* Vibrant green for Data tab when active */
+      background-color: #4CAF50; /* Dark green for Data tab when active */
       color: white;
     }
     .tab-content {
@@ -125,7 +129,7 @@
       font-size: 14px;
       margin-top: 10px;
       cursor: pointer;
-      transition: background-color 0.3s;
+      transition: background-color: 0.3s;
     }
     .drag-area.drag-over {
       background-color: #E6EFFF;
@@ -140,7 +144,7 @@
       display: none;
     }
     .schema-box.processed {
-      border: 1px solid #ccc;
+      border: 1px solid: #ccc;
       display: block;
     }
     .warning {
@@ -169,40 +173,68 @@
       font-weight: bold;
       color: #333;
     }
+    .sub-tab-container {
+      overflow: hidden;
+      background-color: #ddd; /* Grey fill for remaining section */
+      border-radius: 0 0 6px 6px;
+      height: 38px; /* Fixed height to match sub-tab buttons */
+      margin-bottom: 10px;
+    }
+    .sub-tab-container button {
+      background-color: #e0e0e0; /* Grey when not active */
+      border: none;
+      outline: none;
+      cursor: pointer;
+      padding: 10px 12px;
+      transition: 0.3s;
+      font-size: 14px;
+      border-bottom-left-radius: 6px;
+      border-bottom-right-radius: 6px;
+      width: 100px; /* Shorter width */
+      float: left; /* Float left */
+      margin-right: 2px;
+      text-align: center;
+    }
+    .sub-tab-container button:hover {
+      background-color: #d0d0d0;
+    }
+    .sub-tab-container button.active {
+      background-color: #2196F3; /* Blue for active sub-tab */
+      color: white;
+    }
+    .sub-tab-content {
+      display: none;
+    }
+    .sub-tab-content.active {
+      display: block;
+    }
     .data-view-box {
       padding: 15px;
       border-radius: 8px;
-      border: 1px solid #ccc;
+      border: 1px solid: #ccc;
       background-color: white;
-      max-height: 400px;
-      overflow: auto;
+      height: calc(80vh - 160px); /* 80% of viewport height minus adjusted offset */
+      overflow-y: auto; /* Vertical scroll if content exceeds height */
+      overflow-x: auto; /* Horizontal scroll for wide tables */
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     .data-view-header {
       margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
     .data-view-header input {
       padding: 8px;
-      width: 100%;
-      border: 1px solid #ccc;
+      flex-grow: 1;
+      border: 1px solid: #ccc;
       border-radius: 4px;
       font-size: 14px;
     }
-    .data-view-buttons {
-      margin-bottom: 10px;
-    }
-    .view-data-btn {
-      background-color: #B0C4DE;
-      color: #333;
-      padding: 8px 16px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
+    .data-view-header .row-count {
+      display: inline;
       font-size: 14px;
-      margin-right: 10px;
-    }
-    .view-data-btn:hover {
-      background-color: #A3BFFA;
+      color: #666;
     }
     .data-table {
       width: 100%;
@@ -210,7 +242,7 @@
     }
     .data-table th, .data-table td {
       padding: 8px;
-      border: 1px solid #ddd;
+      border: 1px solid: #ddd;
       text-align: left;
       color: #666;
       white-space: nowrap;
@@ -231,7 +263,7 @@
 <body>
   <h1>Excel File Processor</h1>
   <div class="tab-container">
-    <button class="tab-link active" onclick="openTab(event, 'FileSelection')">File Selection</button>
+    <button class="tab-link file-selection-tab active" onclick="openTab(event, 'FileSelection')">File Selection</button>
     <button id="dataTab" class="tab-link data-tab" onclick="openTab(event, 'Data')">Data</button>
   </div>
 
@@ -272,15 +304,27 @@
     </div>
   </div>
   <div id="Data" class="tab-content">
-    <div class="data-view-buttons">
-      <button class="view-data-btn" onclick="viewData(1)">View Old Data</button>
-      <button class="view-data-btn" onclick="viewData(2)">View New Data</button>
+    <div class="sub-tab-container">
+      <button class="sub-tab-link active" onclick="openSubTab(event, 'OldData')">Old Data</button>
+      <button class="sub-tab-link" onclick="openSubTab(event, 'NewData')">New Data</button>
     </div>
-    <div id="dataView" class="data-view-box">
-      <div class="data-view-header">
-        <input type="text" id="dataSearch" placeholder="Search data...">
+    <div id="OldData" class="sub-tab-content active">
+      <div class="data-view-box">
+        <div class="data-view-header">
+          <input type="text" id="oldDataSearch" placeholder="Search old data...">
+          <span id="oldDataRowCount" class="row-count"></span>
+        </div>
+        <table id="oldDataTable" class="data-table"></table>
       </div>
-      <table id="data-table" class="data-table"></table>
+    </div>
+    <div id="NewData" class="sub-tab-content">
+      <div class="data-view-box">
+        <div class="data-view-header">
+          <input type="text" id="newDataSearch" placeholder="Search new data...">
+          <span id="newDataRowCount" class="row-count"></span>
+        </div>
+        <table id="newDataTable" class="data-table"></table>
+      </div>
     </div>
   </div>
 
@@ -288,8 +332,6 @@
   <script>
     let data1 = null;
     let data2 = null;
-    let currentFileIndex = null;
-    let currentData = null;
 
     function openTab(evt, tabName) {
       const tabContents = document.getElementsByClassName("tab-content");
@@ -302,6 +344,20 @@
       }
       document.getElementById(tabName).classList.add("active");
       evt.currentTarget.classList.add("active");
+    }
+
+    function openSubTab(evt, subTabName) {
+      const subTabContents = document.getElementsByClassName("sub-tab-content");
+      for (let i = 0; i < subTabContents.length; i++) {
+        subTabContents[i].classList.remove("active");
+      }
+      const subTabLinks = document.getElementsByClassName("sub-tab-link");
+      for (let i = 0; i < subTabLinks.length; i++) {
+        subTabLinks[i].classList.remove("active");
+      }
+      document.getElementById(subTabName).classList.add("active");
+      evt.currentTarget.classList.add("active");
+      renderSubTabData(subTabName);
     }
 
     function updateMessages(messages, isError = false, isWarning = false) {
@@ -348,8 +404,8 @@
       }
     }
 
-    function renderDataTable(data, headers, searchTerm = '') {
-      const dataTable = document.getElementById('data-table');
+    function renderDataTable(data, headers, tableId, searchTerm = '') {
+      const dataTable = document.getElementById(tableId);
       dataTable.innerHTML = '';
 
       const headerRow = document.createElement('tr');
@@ -386,22 +442,25 @@
       });
     }
 
-    function viewData(fileIndex) {
-      const dataViewDiv = document.getElementById('dataView');
-      dataViewDiv.classList.add('active');
-
-      currentFileIndex = fileIndex;
-      currentData = fileIndex === 1 ? data1 : data2;
-      const headers = fileIndex === 1 ? Object.keys(data1[0] || {}) : Object.keys(data2[0] || {});
-
-      renderDataTable(currentData, headers, document.getElementById('dataSearch').value);
+    function renderSubTabData(subTabName) {
+      if (subTabName === 'OldData' && data1) {
+        const headers = Object.keys(data1[0] || {});
+        document.getElementById('oldDataRowCount').textContent = `${data1.length} rows`;
+        renderDataTable(data1, headers, 'oldDataTable', document.getElementById('oldDataSearch').value);
+      } else if (subTabName === 'NewData' && data2) {
+        const headers = Object.keys(data2[0] || {});
+        document.getElementById('newDataRowCount').textContent = `${data2.length} rows`;
+        renderDataTable(data2, headers, 'newDataTable', document.getElementById('newDataSearch').value);
+      }
     }
 
     function hideDataView() {
-      const dataViewDiv = document.getElementById('dataView');
-      dataViewDiv.classList.remove('active');
-      document.getElementById('data-table').innerHTML = '';
-      document.getElementById('dataSearch').value = '';
+      document.getElementById('oldDataTable').innerHTML = '';
+      document.getElementById('newDataTable').innerHTML = '';
+      document.getElementById('oldDataSearch').value = '';
+      document.getElementById('newDataSearch').value = '';
+      document.getElementById('oldDataRowCount').textContent = '';
+      document.getElementById('newDataRowCount').textContent = '';
     }
 
     function toggleDataTab(show) {
@@ -441,7 +500,7 @@
       
       if (uniqueToFile2.length > 0) {
         messages.push({
-          message: `New file (${fileName2}) contains columns not present in the old file: ${uniqueToFile2.join(', ')}.`,
+          message: `New file (${fileName2}) contains columns not present in the new file: ${uniqueToFile2.join(', ')}.`,
           isDetail: true
         });
       }
@@ -491,7 +550,8 @@
           updateMessages([]);
         }
 
-        toggleDataTab(true); // Show Data tab after successful load
+        toggleDataTab(true);
+        renderSubTabData('OldData'); // Render Old Data by default when files are loaded
 
         console.log('File 1 Data:', data1);
         console.log('File 2 Data:', data2);
@@ -549,10 +609,17 @@
       }
     });
 
-    document.getElementById('dataSearch').addEventListener('input', function() {
-      if (currentFileIndex && currentData) {
-        const headers = currentFileIndex === 1 ? Object.keys(data1[0] || {}) : Object.keys(data2[0] || {});
-        renderDataTable(currentData, headers, this.value);
+    document.getElementById('oldDataSearch').addEventListener('input', function() {
+      if (data1) {
+        const headers = Object.keys(data1[0] || {});
+        renderDataTable(data1, headers, 'oldDataTable', this.value);
+      }
+    });
+
+    document.getElementById('newDataSearch').addEventListener('input', function() {
+      if (data2) {
+        const headers = Object.keys(data2[0] || {});
+        renderDataTable(data2, headers, 'newDataTable', this.value);
       }
     });
 
