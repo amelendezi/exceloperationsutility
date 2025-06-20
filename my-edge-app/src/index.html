@@ -223,8 +223,8 @@
       padding: 10px 12px;
       transition: 0.3s;
       font-size: 14px;
-      border-bottom-left-radius: 6px;
-      border-bottom-right-radius: 6px;
+      border-bottom-left-radius: 8px;
+      border-bottom-right-radius: 8px;
       width: 100px;
       float: left;
       margin-right: 2px;
@@ -266,7 +266,7 @@
       border-radius: 4px;
       font-size: 14px;
     }
-    .modified-tag, .deleted-tag {
+    .modified-tag, .deleted-tag, .new-tag {
       background-color: #CCCCCC; /* Grey for inactive state */
       color: #333;
       border: none; /* Match Choose File button */
@@ -287,7 +287,12 @@
       color: #333;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Maintain shadow */
     }
-    .modified-tag:hover, .deleted-tag:hover {
+    .new-tag.active {
+      background-color: #4CAF50; /* Green for active New */
+      color: white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Maintain shadow */
+    }
+    .modified-tag:hover, .deleted-tag:hover, .new-tag:hover {
       background-color: #B3B3B3; /* Slightly darker grey for inactive hover */
     }
     .modified-tag.active:hover {
@@ -295,6 +300,9 @@
     }
     .deleted-tag.active:hover {
       background-color: #FF4D4D; /* Hover effect for active Deleted */
+    }
+    .new-tag.active:hover {
+      background-color: #388E3C; /* Hover effect for active New */
     }
     .export-button {
       background-color: #2196F3;
@@ -330,7 +338,7 @@
       z-index: 1;
     }
     .data-table tr.new-row {
-      background-color: #FFFF99;
+      background-color: #E8F5E9; /* Light green for new rows */
     }
     .data-table tr.deleted-row {
       background-color: #FFE4E4;
@@ -404,6 +412,7 @@
           <input type="text" id="newDataSearch" placeholder="Search new data...">
           <button id="modifiedFilter" class="modified-tag">Modified</button>
           <button id="deletedFilter" class="deleted-tag">Deleted</button>
+          <button id="newFilter" class="new-tag">New</button>
           <button id="exportButton" class="export-button">Export</button>
         </div>
         <table id="newDataTable" class="data-table"></table>
@@ -421,6 +430,7 @@
     let selectedKey = null;
     let showModifiedOnly = false;
     let showDeletedOnly = false;
+    let showNewOnly = false;
 
     // Promise to track SheetJS loading for file reading
     let sheetJSPromise = null;
@@ -639,13 +649,16 @@
       if (isNewData && data1 && comparisonKey && headers.includes(comparisonKey)) {
         const oldDataByKey = new Map(data1.map(row => [row[comparisonKey], row]));
         const newDataKeys = new Set(filteredData.map(row => row[comparisonKey]));
+        const oldDataKeys = new Set(oldDataByKey.keys());
         let rowsToDisplay = [];
 
-        // Filter modified rows: new rows or rows with changed values
+        // Filter new rows: rows in data2 not in data1
+        const newRows = filteredData.filter(row => !oldDataByKey.has(row[comparisonKey]));
+
+        // Filter modified rows: rows in data2 with changed values (excluding new rows)
         const modifiedRows = filteredData.filter(row => {
           const oldRow = oldDataByKey.get(row[comparisonKey]);
-          if (!oldRow) return true; // New row
-          return headers.some(header => 
+          return oldRow && headers.some(header => 
             header !== comparisonKey && oldRow[header] !== row[header]
           );
         });
@@ -658,21 +671,26 @@
         );
 
         // Apply filtering based on button states
-        if (showModifiedOnly && !showDeletedOnly) {
+        if (showNewOnly && !showModifiedOnly && !showDeletedOnly) {
+          // Show only new rows
+          rowsToDisplay.push(...newRows);
+        } else if (showModifiedOnly && !showNewOnly && !showDeletedOnly) {
           // Show only modified rows
           rowsToDisplay.push(...modifiedRows);
-        } else if (showDeletedOnly && !showModifiedOnly) {
+        } else if (showDeletedOnly && !showNewOnly && !showModifiedOnly) {
           // Show only deleted rows
           rowsToDisplay.push(...deletedRows);
-        } else if (showModifiedOnly && showDeletedOnly) {
-          // Show both modified and deleted rows
-          rowsToDisplay.push(...modifiedRows, ...deletedRows);
+        } else if (showNewOnly || showModifiedOnly || showDeletedOnly) {
+          // Show combinations of new, modified, and deleted rows
+          if (showNewOnly) rowsToDisplay.push(...newRows);
+          if (showModifiedOnly) rowsToDisplay.push(...modifiedRows);
+          if (showDeletedOnly) rowsToDisplay.push(...deletedRows);
         } else {
-          // Show all rows (no filtering by Modified or Deleted)
+          // Show all rows (no filtering by New, Modified, or Deleted)
           rowsToDisplay.push(...filteredData);
         }
 
-        // Remove duplicates by comparisonKey (in case a row appears in both modified and deleted)
+        // Remove duplicates by comparisonKey
         const uniqueRows = new Map();
         rowsToDisplay.forEach(row => {
           const key = row[comparisonKey];
@@ -755,11 +773,13 @@
             )
           : data2;
 
-        // Filter modified rows: new rows or rows with changed values
+        // Filter new rows: rows in data2 not in data1
+        const newRows = filteredData.filter(row => !oldDataByKey.has(row[comparisonKey]));
+
+        // Filter modified rows: rows in data2 with changed values (excluding new rows)
         const modifiedRows = filteredData.filter(row => {
           const oldRow = oldDataByKey.get(row[comparisonKey]);
-          if (!oldRow) return true; // New row
-          return headers.some(header => 
+          return oldRow && headers.some(header => 
             header !== comparisonKey && oldRow[header] !== row[header]
           );
         });
@@ -772,17 +792,22 @@
         );
 
         // Apply filtering based on button states
-        if (showModifiedOnly && !showDeletedOnly) {
+        if (showNewOnly && !showModifiedOnly && !showDeletedOnly) {
+          // Export only new rows
+          rowsToExport.push(...newRows);
+        } else if (showModifiedOnly && !showNewOnly && !showDeletedOnly) {
           // Export only modified rows
           rowsToExport.push(...modifiedRows);
-        } else if (showDeletedOnly && !showModifiedOnly) {
+        } else if (showDeletedOnly && !showNewOnly && !showModifiedOnly) {
           // Export only deleted rows
           rowsToExport.push(...deletedRows);
-        } else if (showModifiedOnly && showDeletedOnly) {
-          // Export both modified and deleted rows
-          rowsToExport.push(...modifiedRows, ...deletedRows);
+        } else if (showNewOnly || showModifiedOnly || showDeletedOnly) {
+          // Export combinations of new, modified, and deleted rows
+          if (showNewOnly) rowsToExport.push(...newRows);
+          if (showModifiedOnly) rowsToExport.push(...modifiedRows);
+          if (showDeletedOnly) rowsToExport.push(...deletedRows);
         } else {
-          // Export all rows (no filtering by Modified or Deleted)
+          // Export all rows (no filtering by New, Modified, or Deleted)
           rowsToExport.push(...filteredData);
         }
 
@@ -1036,6 +1061,12 @@
 
     document.getElementById('deletedFilter').addEventListener('click', function() {
       showDeletedOnly = !showDeletedOnly;
+      this.classList.toggle('active');
+      renderSubTabData('NewData');
+    });
+
+    document.getElementById('newFilter').addEventListener('click', function() {
+      showNewOnly = !showNewOnly;
       this.classList.toggle('active');
       renderSubTabData('NewData');
     });
