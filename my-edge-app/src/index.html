@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Excel File Processor</title>
-  <!-- ExcelJS and FileSaver.js for XLSX export -->
+  <!-- ExcelJS for reading and writing XLSX files -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+  <!-- FileSaver.js for triggering file downloads -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
   <style>
     body {
@@ -144,6 +145,78 @@
       border: 1px solid: #ccc;
       display: block;
     }
+    .settings-link {
+      display: none;
+      font-size: 12px;
+      color: #2196F3;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .settings-link.processed {
+      display: block;
+    }
+    .settings-icon {
+      font-size: 12px;
+      margin-left: 5px;
+    }
+    .config-dialog {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .config-dialog.open {
+      display: flex;
+    }
+    .config-dialog-content {
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      width: 400px;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .config-dialog-header {
+      font-size: 16px;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 15px;
+    }
+    .config-dialog-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .config-dialog-item label {
+      flex: 1;
+      font-size: 14px;
+      color: #333;
+    }
+    .config-dialog-item input[type="checkbox"], .config-dialog-item input[type="radio"] {
+      margin-right: 10px;
+    }
+    .config-dialog-button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-top: 10px;
+      display: block;
+      margin-left: auto;
+    }
+    .config-dialog-button:hover {
+      background-color: #388E3C;
+    }
     .warning {
       color: #e65100;
       margin-bottom: 10px;
@@ -175,14 +248,13 @@
       color: #a94442;
       font-weight: bold;
     }
-    .edit-icon {
-      cursor: pointer;
-      color: #2196F3;
-      margin-left: 5px;
-      font-size: 12px;
-    }
     .key-icon {
       color: #666;
+      margin-left: 5px;
+      font-size: 14px;
+    }
+    .compare-icon {
+      color: #2196F3;
       margin-left: 5px;
       font-size: 14px;
     }
@@ -203,11 +275,6 @@
       width: 30px;
       text-align: center;
     }
-    .comparison-key-message {
-      margin-top: 10px;
-      font-size: 12px;
-      color: #2196F3;
-    }
     .sub-tab-container {
       overflow: hidden;
       background-color: #ddd;
@@ -223,8 +290,8 @@
       padding: 10px 12px;
       transition: 0.3s;
       font-size: 14px;
-      border-bottom-left-radius: 8px;
-      border-bottom-right-radius: 8px;
+      border-bottom-left-radius: 6px;
+      border-bottom-right-radius: 6px;
       width: 100px;
       float: left;
       margin-right: 2px;
@@ -274,7 +341,7 @@
       padding: 6px 12px;
       font-size: 12px;
       cursor: pointer;
-      transition: background-color 0.3s;
+      transition: background-color: 0.3s;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Light shadow */
     }
     .modified-tag.active {
@@ -389,7 +456,7 @@
       <div id="messages"></div>
       <div id="schema" class="schema-box">
         <table id="schema-table" class="schema-table"></table>
-        <div id="comparison-key" class="comparison-key-message"></div>
+        <div id="settingsLink" class="settings-link">Edit Settings <span class="settings-icon">⚙️</span></div>
       </div>
     </div>
   </div>
@@ -420,41 +487,25 @@
     </div>
   </div>
 
-  <!-- SheetJS for reading XLSX files during upload -->
-  <script src="https://unpkg.com/xlsx@0.20.3/dist/xlsx.full.min.js"></script>
+  <!-- Settings dialog -->
+  <div id="configDialog" class="config-dialog">
+    <div class="config-dialog-content">
+      <div class="config-dialog-header">Comparison Key</div>
+      <div id="configKey"></div>
+      <div class="config-dialog-header" style="margin-top: 20px;">Columns to Compare</div>
+      <div id="configColumns"></div>
+      <button id="configCloseButton" class="config-dialog-button">Close</button>
+    </div>
+  </div>
+
   <script>
     let data1 = null;
     let data2 = null;
     let comparisonKey = 'Name';
-    let isEditing = false;
-    let selectedKey = null;
+    let selectedColumns = [];
     let showModifiedOnly = false;
     let showDeletedOnly = false;
     let showNewOnly = false;
-
-    // Promise to track SheetJS loading for file reading
-    let sheetJSPromise = null;
-    function loadSheetJS() {
-      if (sheetJSPromise) return sheetJSPromise;
-      if (typeof XLSX !== 'undefined') return Promise.resolve();
-
-      sheetJSPromise = new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = 'js/xlsx.full.min.js';
-        script.async = false;
-        script.onload = () => {
-          if (typeof XLSX !== 'undefined') {
-            resolve();
-          } else {
-            reject(new Error('Failed to load SheetJS from fallback.'));
-          }
-        };
-        script.onerror = () => reject(new Error('Failed to load SheetJS fallback script.'));
-        document.head.appendChild(script);
-      });
-
-      return sheetJSPromise;
-    }
 
     function hideDataView() {
       document.getElementById('oldDataTable').innerHTML = '';
@@ -466,6 +517,91 @@
     function toggleDataTab(show) {
       const dataTab = document.getElementById('dataTab');
       dataTab.style.display = show ? 'inline-block' : 'none';
+    }
+
+    function openConfigDialog() {
+      if (typeof ExcelJS === 'undefined') {
+        updateMessages(['ExcelJS not loaded. Cannot open settings.'], true);
+        return;
+      }
+
+      const dialog = document.getElementById('configDialog');
+      const configKey = document.getElementById('configKey');
+      const configColumns = document.getElementById('configColumns');
+      configKey.innerHTML = '';
+      configColumns.innerHTML = '';
+
+      // Get common columns
+      const headers1 = data1 && data1[0] ? Object.keys(data1[0]) : [];
+      const headers2 = data2 && data2[0] ? Object.keys(data2[0]) : [];
+      const commonHeaders = headers1.filter(h => headers2.includes(h));
+
+      // Populate comparison key section with radio buttons
+      commonHeaders.forEach(header => {
+        const div = document.createElement('div');
+        div.className = 'config-dialog-item';
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = 'comparisonKey';
+        radio.id = `key-${header}`;
+        radio.value = header;
+        radio.checked = comparisonKey === header;
+        const label = document.createElement('label');
+        label.htmlFor = `key-${header}`;
+        label.textContent = header;
+        div.appendChild(radio);
+        div.appendChild(label);
+        configKey.appendChild(div);
+      });
+
+      // Populate comparison columns section with checkboxes
+      commonHeaders.forEach(header => {
+        const div = document.createElement('div');
+        div.className = 'config-dialog-item';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `column-${header}`;
+        checkbox.value = header;
+        checkbox.checked = selectedColumns.includes(header);
+        const label = document.createElement('label');
+        label.htmlFor = `column-${header}`;
+        label.textContent = header;
+        div.appendChild(checkbox);
+        div.appendChild(label);
+        configColumns.appendChild(div);
+      });
+
+      dialog.classList.add('open');
+    }
+
+    function closeConfigDialog() {
+      const dialog = document.getElementById('configDialog');
+      // Update comparisonKey
+      const selectedRadio = document.querySelector('#configKey input[type="radio"]:checked');
+      if (selectedRadio) {
+        comparisonKey = selectedRadio.value;
+      }
+      // Update selectedColumns
+      selectedColumns = [];
+      const checkboxes = document.querySelectorAll('#configColumns input[type="checkbox"]:checked');
+      checkboxes.forEach(checkbox => {
+        selectedColumns.push(checkbox.value);
+      });
+      dialog.classList.remove('open');
+      // Refresh schema and New Data table
+      if (data1 && data2) {
+        const headers1 = Object.keys(data1[0] || {});
+        const headers2 = Object.keys(data2[0] || {});
+        const headerComparison = compareHeaders(headers1, headers2, 'Old File', 'New File');
+        updateSchema(
+          headers1,
+          headers2,
+          headerComparison.uniqueToFile1 || [],
+          headerComparison.uniqueToFile2 || [],
+          headerComparison.commonHeaders || []
+        );
+        renderSubTabData('NewData');
+      }
     }
 
     function renderSubTabData(subTabName) {
@@ -524,31 +660,8 @@
     function updateSchema(headers1, headers2, uniqueToFile1, uniqueToFile2, commonHeaders) {
       const schemaDiv = document.getElementById('schema');
       const schemaTable = document.getElementById('schema-table');
-      const comparisonKeyDiv = document.getElementById('comparison-key');
       schemaTable.innerHTML = '';
       schemaDiv.classList.add('processed');
-
-      if (isEditing) {
-        const saveRow = document.createElement('tr');
-        const saveCell = document.createElement('td');
-        saveCell.colSpan = 3;
-        const saveButton = document.createElement('button');
-        saveButton.className = 'save-button';
-        saveButton.textContent = 'Save';
-        saveButton.onclick = () => {
-          if (selectedKey) {
-            comparisonKey = selectedKey;
-            isEditing = false;
-            updateSchema(headers1, headers2, uniqueToFile1, uniqueToFile2, commonHeaders);
-            renderSubTabData('NewData');
-          } else {
-            updateMessages(['Please select a comparison key.'], true);
-          }
-        };
-        saveCell.appendChild(saveButton);
-        saveRow.appendChild(saveCell);
-        schemaTable.appendChild(saveRow);
-      }
 
       const headerRow = document.createElement('tr');
       const th1 = document.createElement('th');
@@ -557,11 +670,6 @@
       th2.textContent = 'New File Columns';
       headerRow.appendChild(th1);
       headerRow.appendChild(th2);
-      if (isEditing) {
-        const th3 = document.createElement('th');
-        th3.className = 'checkbox-cell';
-        headerRow.appendChild(th3);
-      }
       schemaTable.appendChild(headerRow);
 
       const maxLength = Math.max(headers1.length, headers2.length);
@@ -569,8 +677,22 @@
         const row = document.createElement('tr');
         const td1 = document.createElement('td');
         const td2 = document.createElement('td');
-        td1.innerHTML = headers1[i] ? `${headers1[i]}${headers1[i] === comparisonKey ? '<span class="key-icon">🔑</span>' : ''}` : '';
-        td2.innerHTML = headers2[i] ? `${headers2[i]}${headers2[i] === comparisonKey ? '<span class="key-icon">🔑</span>' : ''}` : '';
+        let td1Content = headers1[i] || '';
+        let td2Content = headers2[i] || '';
+        if (headers1[i] === comparisonKey) {
+          td1Content += '<span class="key-icon">🔑</span>';
+        }
+        if (headers2[i] === comparisonKey) {
+          td2Content += '<span class="key-icon">🔑</span>';
+        }
+        if (headers1[i] && selectedColumns.includes(headers1[i])) {
+          td1Content += '<span class="compare-icon">⇄</span>';
+        }
+        if (headers2[i] && selectedColumns.includes(headers2[i])) {
+          td2Content += '<span class="compare-icon">⇄</span>';
+        }
+        td1.innerHTML = td1Content;
+        td2.innerHTML = td2Content;
         if (headers1[i] && uniqueToFile1.includes(headers1[i])) {
           td1.classList.add('different');
         }
@@ -579,51 +701,11 @@
         }
         row.appendChild(td1);
         row.appendChild(td2);
-        if (isEditing && headers2[i] && commonHeaders.includes(headers2[i])) {
-          const td3 = document.createElement('td');
-          td3.className = 'checkbox-cell';
-          const checkbox = document.createElement('input');
-          checkbox.type = 'checkbox';
-          checkbox.checked = headers2[i] === (selectedKey || comparisonKey);
-          checkbox.onchange = () => {
-            if (checkbox.checked) {
-              document.querySelectorAll('.schema-table input[type="checkbox"]').forEach(cb => {
-                if (cb !== checkbox) cb.checked = false;
-              });
-              selectedKey = headers2[i];
-            } else {
-              selectedKey = null;
-            }
-          };
-          td3.appendChild(checkbox);
-          row.appendChild(td3);
-        } else if (isEditing) {
-          row.appendChild(document.createElement('td'));
-        }
         schemaTable.appendChild(row);
       }
 
-      comparisonKeyDiv.innerHTML = isEditing ? '' : `Edit the key column <span class="edit-icon" onclick="toggleEditMode()">✎</span>`;
-    }
-
-    function toggleEditMode() {
-      isEditing = !isEditing;
-      selectedKey = null;
-      if (data1 && data2) {
-        const headerComparison = compareHeaders(
-          Object.keys(data1[0] || {}),
-          Object.keys(data2[0] || {}),
-          'Old File',
-          'New File'
-        );
-        updateSchema(
-          Object.keys(data1[0] || {}),
-          Object.keys(data2[0] || {}),
-          headerComparison.uniqueToFile1 || [],
-          headerComparison.uniqueToFile2 || [],
-          headerComparison.commonHeaders || []
-        );
-      }
+      // Show settings link
+      document.getElementById('settingsLink').classList.add('processed');
     }
 
     function renderDataTable(data, headers, tableId, searchTerm = '', isNewData = false) {
@@ -655,10 +737,10 @@
         // Filter new rows: rows in data2 not in data1
         const newRows = filteredData.filter(row => !oldDataByKey.has(row[comparisonKey]));
 
-        // Filter modified rows: rows in data2 with changed values (excluding new rows)
+        // Filter modified rows: rows in data2 with changed values in selectedColumns (excluding new rows)
         const modifiedRows = filteredData.filter(row => {
           const oldRow = oldDataByKey.get(row[comparisonKey]);
-          return oldRow && headers.some(header => 
+          return oldRow && selectedColumns.some(header => 
             header !== comparisonKey && oldRow[header] !== row[header]
           );
         });
@@ -672,21 +754,16 @@
 
         // Apply filtering based on button states
         if (showNewOnly && !showModifiedOnly && !showDeletedOnly) {
-          // Show only new rows
           rowsToDisplay.push(...newRows);
         } else if (showModifiedOnly && !showNewOnly && !showDeletedOnly) {
-          // Show only modified rows
           rowsToDisplay.push(...modifiedRows);
         } else if (showDeletedOnly && !showNewOnly && !showModifiedOnly) {
-          // Show only deleted rows
           rowsToDisplay.push(...deletedRows);
         } else if (showNewOnly || showModifiedOnly || showDeletedOnly) {
-          // Show combinations of new, modified, and deleted rows
           if (showNewOnly) rowsToDisplay.push(...newRows);
           if (showModifiedOnly) rowsToDisplay.push(...modifiedRows);
           if (showDeletedOnly) rowsToDisplay.push(...deletedRows);
         } else {
-          // Show all rows (no filtering by New, Modified, or Deleted)
           rowsToDisplay.push(...filteredData);
         }
 
@@ -719,7 +796,7 @@
               cellContent = cellContent.toString().replace(regex, '<span class="highlight">$1</span>');
             }
             td.innerHTML = cellContent;
-            if (!isNewRow && !isDeletedRow && header !== comparisonKey) {
+            if (!isNewRow && !isDeletedRow && header !== comparisonKey && selectedColumns.includes(header)) {
               const oldRow = oldDataByKey.get(row[comparisonKey]);
               if (oldRow && oldRow[header] !== row[header]) {
                 td.classList.add('different-value');
@@ -776,10 +853,10 @@
         // Filter new rows: rows in data2 not in data1
         const newRows = filteredData.filter(row => !oldDataByKey.has(row[comparisonKey]));
 
-        // Filter modified rows: rows in data2 with changed values (excluding new rows)
+        // Filter modified rows: rows in data2 with changed values in selectedColumns (excluding new rows)
         const modifiedRows = filteredData.filter(row => {
           const oldRow = oldDataByKey.get(row[comparisonKey]);
-          return oldRow && headers.some(header => 
+          return oldRow && selectedColumns.some(header => 
             header !== comparisonKey && oldRow[header] !== row[header]
           );
         });
@@ -793,21 +870,16 @@
 
         // Apply filtering based on button states
         if (showNewOnly && !showModifiedOnly && !showDeletedOnly) {
-          // Export only new rows
           rowsToExport.push(...newRows);
         } else if (showModifiedOnly && !showNewOnly && !showDeletedOnly) {
-          // Export only modified rows
           rowsToExport.push(...modifiedRows);
         } else if (showDeletedOnly && !showNewOnly && !showModifiedOnly) {
-          // Export only deleted rows
           rowsToExport.push(...deletedRows);
         } else if (showNewOnly || showModifiedOnly || showDeletedOnly) {
-          // Export combinations of new, modified, and deleted rows
           if (showNewOnly) rowsToExport.push(...newRows);
           if (showModifiedOnly) rowsToExport.push(...modifiedRows);
           if (showDeletedOnly) rowsToExport.push(...deletedRows);
         } else {
-          // Export all rows (no filtering by New, Modified, or Deleted)
           rowsToExport.push(...filteredData);
         }
 
@@ -830,11 +902,11 @@
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Exported Data');
 
-        // Define columns based on headers
+        // Define columns based on headers (export all columns)
         worksheet.columns = headers.map(header => ({
           header: header,
           key: header,
-          width: 20 // Adjust width as needed
+          width: 20
         }));
 
         // Add rows from the data
@@ -860,45 +932,36 @@
 
     async function readExcelFile(file) {
       try {
-        await loadSheetJS(); // Ensure SheetJS is loaded
-        const arrayBuffer = await file.arrayBuffer();
-        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-
-        const range = XLSX.utils.decode_range(worksheet['!ref']);
-        const headers = [];
-        const firstRow = [];
-
-        for (let col = range.s.c; col <= range.e.c; col++) {
-          const cellAddress = XLSX.utils.encode_cell({ r: range.s.r, c: col });
-          const cell = worksheet[cellAddress];
-          const value = cell ? cell.v : '';
-          if (value !== '' && value !== null && value !== undefined) {
-            headers.push(value.toString());
-          } else {
-            headers.push(null);
-          }
-          firstRow.push(value);
+        if (typeof ExcelJS === 'undefined') {
+          throw new Error('ExcelJS not loaded.');
         }
 
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(arrayBuffer);
+        const worksheet = workbook.getWorksheet(1); // First sheet
+
+        const headers = [];
+        const firstRow = worksheet.getRow(1);
+        firstRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+          const value = cell.value;
+          headers.push(value ? value.toString() : null);
+        });
+
         const validHeaders = headers.filter(h => h !== null);
+        const data = [];
 
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
-          header: validHeaders, 
-          defval: '',
-          range: { s: { c: range.s.c, r: range.s.r + 1 }, e: { c: range.e.c, r: range.e.r } }
-        });
-
-        const mappedData = jsonData.map(row => {
-          const newRow = {};
-          validHeaders.forEach(header => {
-            newRow[header] = row[header] || '';
+        worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+          if (rowNumber === 1) return; // Skip header row
+          const rowData = {};
+          validHeaders.forEach((header, index) => {
+            const cell = row.getCell(index + 1);
+            rowData[header] = cell.value ? cell.value.toString() : '';
           });
-          return newRow;
+          data.push(rowData);
         });
 
-        return { data: mappedData, headers: validHeaders };
+        return { data, headers: validHeaders };
       } catch (error) {
         throw new Error(`Error reading ${file.name}: ${error.message}`);
       }
@@ -909,6 +972,7 @@
       const uniqueToFile2 = headers2.filter(h => !headers1.includes(h));
       const commonHeaders = headers1.filter(h => headers2.includes(h));
 
+      // Initialize comparisonKey if not set or invalid
       if (!comparisonKey || !commonHeaders.includes(comparisonKey)) {
         comparisonKey = commonHeaders.includes('Name') ? 'Name' : commonHeaders[0] || null;
       }
@@ -943,6 +1007,7 @@
       if (!fileInput1.files.length || !fileInput2.files.length) {
         updateMessages(['Please upload both Excel files.'], true);
         document.getElementById('schema').classList.remove('processed');
+        document.getElementById('settingsLink').classList.remove('processed');
         document.getElementById('check1').style.display = 'none';
         document.getElementById('check2').style.display = 'none';
         hideDataView();
@@ -966,6 +1031,9 @@
           fileInput2.files[0].name
         );
 
+        // Initialize selectedColumns with all common headers
+        selectedColumns = headerComparison.commonHeaders || [];
+
         updateSchema(
           file1Result.headers,
           file2Result.headers,
@@ -988,6 +1056,7 @@
       } catch (error) {
         updateMessages([error.message], true);
         document.getElementById('schema').classList.remove('processed');
+        document.getElementById('settingsLink').classList.remove('processed');
         document.getElementById('check1').style.display = 'none';
         document.getElementById('check2').style.display = 'none';
         hideDataView();
@@ -1080,6 +1149,9 @@
         updateMessages(['No data available to export.'], true);
       }
     });
+
+    document.getElementById('settingsLink').addEventListener('click', openConfigDialog);
+    document.getElementById('configCloseButton').addEventListener('click', closeConfigDialog);
 
     const dragArea1 = document.getElementById('dragArea1');
     const dragArea2 = document.getElementById('dragArea2');
