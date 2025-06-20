@@ -114,12 +114,6 @@
       margin-left: 10px;
       display: none;
     }
-    .row-count {
-      font-size: 14px;
-      color: #666;
-      margin-left: 5px;
-      display: none;
-    }
     .drag-area {
       border: 2px dashed #B0C4DE;
       border-radius: 8px;
@@ -172,10 +166,44 @@
     .schema-table th {
       font-weight: bold;
       color: #333;
+      vertical-align: middle;
     }
     .schema-table td.different {
       color: #a94442;
       font-weight: bold;
+    }
+    .edit-icon {
+      cursor: pointer;
+      color: #2196F3;
+      margin-left: 5px;
+      font-size: 12px;
+    }
+    .key-icon {
+      color: #666;
+      margin-left: 5px;
+      font-size: 14px;
+    }
+    .save-button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+    .save-button:hover {
+      background-color: #388E3C;
+    }
+    .checkbox-cell {
+      width: 30px;
+      text-align: center;
+    }
+    .comparison-key-message {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #2196F3;
     }
     .sub-tab-container {
       overflow: hidden;
@@ -230,15 +258,56 @@
     }
     .data-view-header input {
       padding: 8px;
-      flex-grow: 1;
+      width: 30%;
       border: 1px solid: #ccc;
       border-radius: 4px;
       font-size: 14px;
     }
-    .data-view-header .row-count {
-      display: inline;
-      font-size: 14px;
-      color: #666;
+    .modified-tag, .deleted-tag {
+      background-color: #cccccc;
+      color: #333;
+      border: 1px solid: #999999;
+      border-radius: 12px;
+      padding: 6px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background-color: 0.3s;
+    }
+    .modified-tag.active {
+      background-color: #4CAF50;
+      color: white;
+      border-color: #388E3C;
+    }
+    .deleted-tag.active {
+      background-color: #8B0000;
+      color: white;
+      border-color: #6B0000;
+    }
+    .modified-tag:hover {
+      background-color: #b3b3b3;
+    }
+    .deleted-tag:hover {
+      background-color: #b3b3b3;
+    }
+    .modified-tag.active:hover {
+      background-color: #388E3C;
+    }
+    .deleted-tag.active:hover {
+      background-color: #6B0000;
+    }
+    .export-button {
+      background-color: #2196F3;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      padding: 6px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      margin-left: auto;
+      transition: background-color: 0.3s;
+    }
+    .export-button:hover {
+      background-color: #1976D2;
     }
     .data-table {
       width: 100%;
@@ -258,6 +327,15 @@
       position: sticky;
       top: 0;
       z-index: 1;
+    }
+    .data-table tr.new-row {
+      background-color: #FFFF99;
+    }
+    .data-table tr.deleted-row {
+      background-color: #FFE4E4;
+    }
+    .data-table td.different-value {
+      background-color: #FFFF99;
     }
     .highlight {
       background-color: #FFFF99;
@@ -285,7 +363,6 @@
               Old File:
               <input type="file" id="file1" accept=".xlsx">
               <span id="check1" class="check-mark">✔</span>
-              <span id="rowCount1" class="row-count"></span>
             </label>
             <div id="dragArea1" class="drag-area">Drag file here</div>
           </td>
@@ -294,7 +371,6 @@
               New File:
               <input type="file" id="file2" accept=".xlsx">
               <span id="check2" class="check-mark">✔</span>
-              <span id="rowCount2" class="row-count"></span>
             </label>
             <div id="dragArea2" class="drag-area">Drag file here</div>
           </td>
@@ -304,6 +380,7 @@
       <div id="messages"></div>
       <div id="schema" class="schema-box">
         <table id="schema-table" class="schema-table"></table>
+        <div id="comparison-key" class="comparison-key-message"></div>
       </div>
     </div>
   </div>
@@ -316,7 +393,6 @@
       <div class="data-view-box">
         <div class="data-view-header">
           <input type="text" id="oldDataSearch" placeholder="Search old data...">
-          <span id="oldDataRowCount" class="row-count"></span>
         </div>
         <table id="oldDataTable" class="data-table"></table>
       </div>
@@ -325,17 +401,70 @@
       <div class="data-view-box">
         <div class="data-view-header">
           <input type="text" id="newDataSearch" placeholder="Search new data...">
-          <span id="newDataRowCount" class="row-count"></span>
+          <button id="modifiedFilter" class="modified-tag">Modified</button>
+          <button id="deletedFilter" class="deleted-tag">Deleted</button>
+          <button id="exportButton" class="export-button">Export</button>
         </div>
         <table id="newDataTable" class="data-table"></table>
       </div>
     </div>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://unpkg.com/xlsx@0.20.3/dist/xlsx.full.min.js"></script>
   <script>
     let data1 = null;
     let data2 = null;
+    let comparisonKey = 'Name';
+    let isEditing = false;
+    let selectedKey = null;
+    let showModifiedOnly = false;
+    let showDeletedOnly = false;
+
+    // Promise to track SheetJS loading for file reading
+    let sheetJSPromise = null;
+    function loadSheetJS() {
+      if (sheetJSPromise) return sheetJSPromise;
+      if (typeof XLSX !== 'undefined') return Promise.resolve();
+
+      sheetJSPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'js/xlsx.full.min.js';
+        script.async = false;
+        script.onload = () => {
+          if (typeof XLSX !== 'undefined') {
+            resolve();
+          } else {
+            reject(new Error('Failed to load SheetJS from fallback.'));
+          }
+        };
+        script.onerror = () => reject(new Error('Failed to load SheetJS fallback script.'));
+        document.head.appendChild(script);
+      });
+
+      return sheetJSPromise;
+    }
+
+    function hideDataView() {
+      document.getElementById('oldDataTable').innerHTML = '';
+      document.getElementById('newDataTable').innerHTML = '';
+      document.getElementById('oldDataSearch').value = '';
+      document.getElementById('newDataSearch').value = '';
+    }
+
+    function toggleDataTab(show) {
+      const dataTab = document.getElementById('dataTab');
+      dataTab.style.display = show ? 'inline-block' : 'none';
+    }
+
+    function renderSubTabData(subTabName) {
+      if (subTabName === 'OldData' && data1) {
+        const headers = Object.keys(data1[0] || {});
+        renderDataTable(data1, headers, 'oldDataTable', document.getElementById('oldDataSearch').value);
+      } else if (subTabName === 'NewData' && data2) {
+        const headers = Object.keys(data2[0] || {});
+        renderDataTable(data2, headers, 'newDataTable', document.getElementById('newDataSearch').value, true);
+      }
+    }
 
     function openTab(evt, tabName) {
       const tabContents = document.getElementsByClassName("tab-content");
@@ -380,11 +509,34 @@
       });
     }
 
-    function updateSchema(headers1, headers2, uniqueToFile1, uniqueToFile2) {
+    function updateSchema(headers1, headers2, uniqueToFile1, uniqueToFile2, commonHeaders) {
       const schemaDiv = document.getElementById('schema');
       const schemaTable = document.getElementById('schema-table');
+      const comparisonKeyDiv = document.getElementById('comparison-key');
       schemaTable.innerHTML = '';
       schemaDiv.classList.add('processed');
+
+      if (isEditing) {
+        const saveRow = document.createElement('tr');
+        const saveCell = document.createElement('td');
+        saveCell.colSpan = 3;
+        const saveButton = document.createElement('button');
+        saveButton.className = 'save-button';
+        saveButton.textContent = 'Save';
+        saveButton.onclick = () => {
+          if (selectedKey) {
+            comparisonKey = selectedKey;
+            isEditing = false;
+            updateSchema(headers1, headers2, uniqueToFile1, uniqueToFile2, commonHeaders);
+            renderSubTabData('NewData');
+          } else {
+            updateMessages(['Please select a comparison key.'], true);
+          }
+        };
+        saveCell.appendChild(saveButton);
+        saveRow.appendChild(saveCell);
+        schemaTable.appendChild(saveRow);
+      }
 
       const headerRow = document.createElement('tr');
       const th1 = document.createElement('th');
@@ -393,6 +545,11 @@
       th2.textContent = 'New File Columns';
       headerRow.appendChild(th1);
       headerRow.appendChild(th2);
+      if (isEditing) {
+        const th3 = document.createElement('th');
+        th3.className = 'checkbox-cell';
+        headerRow.appendChild(th3);
+      }
       schemaTable.appendChild(headerRow);
 
       const maxLength = Math.max(headers1.length, headers2.length);
@@ -400,8 +557,8 @@
         const row = document.createElement('tr');
         const td1 = document.createElement('td');
         const td2 = document.createElement('td');
-        td1.textContent = headers1[i] || '';
-        td2.textContent = headers2[i] || '';
+        td1.innerHTML = headers1[i] ? `${headers1[i]}${headers1[i] === comparisonKey ? '<span class="key-icon">🔑</span>' : ''}` : '';
+        td2.innerHTML = headers2[i] ? `${headers2[i]}${headers2[i] === comparisonKey ? '<span class="key-icon">🔑</span>' : ''}` : '';
         if (headers1[i] && uniqueToFile1.includes(headers1[i])) {
           td1.classList.add('different');
         }
@@ -410,11 +567,54 @@
         }
         row.appendChild(td1);
         row.appendChild(td2);
+        if (isEditing && headers2[i] && commonHeaders.includes(headers2[i])) {
+          const td3 = document.createElement('td');
+          td3.className = 'checkbox-cell';
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.checked = headers2[i] === (selectedKey || comparisonKey);
+          checkbox.onchange = () => {
+            if (checkbox.checked) {
+              document.querySelectorAll('.schema-table input[type="checkbox"]').forEach(cb => {
+                if (cb !== checkbox) cb.checked = false;
+              });
+              selectedKey = headers2[i];
+            } else {
+              selectedKey = null;
+            }
+          };
+          td3.appendChild(checkbox);
+          row.appendChild(td3);
+        } else if (isEditing) {
+          row.appendChild(document.createElement('td'));
+        }
         schemaTable.appendChild(row);
+      }
+
+      comparisonKeyDiv.innerHTML = isEditing ? '' : `Edit the key column <span class="edit-icon" onclick="toggleEditMode()">✎</span>`;
+    }
+
+    function toggleEditMode() {
+      isEditing = !isEditing;
+      selectedKey = null;
+      if (data1 && data2) {
+        const headerComparison = compareHeaders(
+          Object.keys(data1[0] || {}),
+          Object.keys(data2[0] || {}),
+          'Old File',
+          'New File'
+        );
+        updateSchema(
+          Object.keys(data1[0] || {}),
+          Object.keys(data2[0] || {}),
+          headerComparison.uniqueToFile1 || [],
+          headerComparison.uniqueToFile2 || [],
+          headerComparison.commonHeaders || []
+        );
       }
     }
 
-    function renderDataTable(data, headers, tableId, searchTerm = '') {
+    function renderDataTable(data, headers, tableId, searchTerm = '', isNewData = false) {
       const dataTable = document.getElementById(tableId);
       dataTable.innerHTML = '';
 
@@ -426,7 +626,7 @@
       });
       dataTable.appendChild(headerRow);
 
-      const filteredData = searchTerm
+      let filteredData = searchTerm
         ? data.filter(row => 
             Object.values(row).some(value => 
               value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
@@ -434,63 +634,179 @@
           )
         : data;
 
-      filteredData.forEach(row => {
-        const dataRow = document.createElement('tr');
-        headers.forEach(header => {
-          const td = document.createElement('td');
-          let cellContent = row[header] || '';
-          if (searchTerm && cellContent) {
-            const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-            cellContent = cellContent.toString().replace(regex, '<span class="highlight">$1</span>');
-            td.innerHTML = cellContent;
-          } else {
-            td.textContent = cellContent;
-          }
-          dataRow.appendChild(td);
-        });
-        dataTable.appendChild(dataRow);
-      });
-    }
+      if (isNewData && data1 && comparisonKey && headers.includes(comparisonKey)) {
+        const oldDataByKey = new Map(data1.map(row => [row[comparisonKey], row]));
+        let rowsToDisplay = [];
 
-    function renderSubTabData(subTabName) {
-      if (subTabName === 'OldData' && data1) {
-        const headers = Object.keys(data1[0] || {});
-        document.getElementById('oldDataRowCount').textContent = `${data1.length} rows`;
-        renderDataTable(data1, headers, 'oldDataTable', document.getElementById('oldDataSearch').value);
-      } else if (subTabName === 'NewData' && data2) {
-        const headers = Object.keys(data2[0] || {});
-        document.getElementById('newDataRowCount').textContent = `${data2.length} rows`;
-        renderDataTable(data2, headers, 'newDataTable', document.getElementById('newDataSearch').value);
+        if (showModifiedOnly) {
+          const modifiedRows = filteredData.filter(row => {
+            const oldRow = oldDataByKey.get(row[comparisonKey]);
+            if (!oldRow) return true; // New row
+            return headers.some(header => 
+              header !== comparisonKey && oldRow[header] !== row[header]
+            );
+          });
+          rowsToDisplay.push(...modifiedRows);
+        } else {
+          rowsToDisplay.push(...filteredData);
+        }
+
+        if (showDeletedOnly) {
+          const newDataKeys = new Set(filteredData.map(row => row[comparisonKey]));
+          const deletedRows = data1.filter(row => !newDataKeys.has(row[comparisonKey])).filter(row =>
+            searchTerm ? Object.values(row).some(value =>
+              value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+            ) : true
+          );
+          rowsToDisplay.push(...deletedRows);
+        }
+
+        rowsToDisplay.forEach(row => {
+          const dataRow = document.createElement('tr');
+          const isNewRow = !oldDataByKey.has(row[comparisonKey]);
+          const isDeletedRow = !filteredData.some(r => r[comparisonKey] === row[comparisonKey]);
+
+          if (isNewRow) {
+            dataRow.classList.add('new-row');
+          } else if (isDeletedRow) {
+            dataRow.classList.add('deleted-row');
+          }
+
+          headers.forEach(header => {
+            const td = document.createElement('td');
+            let cellContent = row[header] || '';
+            if (searchTerm && cellContent) {
+              const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+              cellContent = cellContent.toString().replace(regex, '<span class="highlight">$1</span>');
+            }
+            td.innerHTML = cellContent;
+            if (!isNewRow && !isDeletedRow && header !== comparisonKey) {
+              const oldRow = oldDataByKey.get(row[comparisonKey]);
+              if (oldRow && oldRow[header] !== row[header]) {
+                td.classList.add('different-value');
+              }
+            }
+            dataRow.appendChild(td);
+          });
+          dataTable.appendChild(dataRow);
+        });
+      } else {
+        filteredData.forEach(row => {
+          const dataRow = document.createElement('tr');
+          headers.forEach(header => {
+            const td = document.createElement('td');
+            let cellContent = row[header] || '';
+            if (searchTerm && cellContent) {
+              const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+              cellContent = cellContent.toString().replace(regex, '<span class="highlight">$1</span>');
+              td.innerHTML = cellContent;
+            } else {
+              td.textContent = cellContent;
+            }
+            dataRow.appendChild(td);
+          });
+          dataTable.appendChild(dataRow);
+        });
       }
     }
 
-    function hideDataView() {
-      document.getElementById('oldDataTable').innerHTML = '';
-      document.getElementById('newDataTable').innerHTML = '';
-      document.getElementById('oldDataSearch').value = '';
-      document.getElementById('newDataSearch').value = '';
-      document.getElementById('oldDataRowCount').textContent = '';
-      document.getElementById('newDataRowCount').textContent = '';
-    }
+    function exportToCSV(headers, searchTerm) {
+      if (!data2 || !headers.includes(comparisonKey)) {
+        updateMessages(['No data or valid comparison key available for export.'], true);
+        return;
+      }
 
-    function toggleDataTab(show) {
-      const dataTab = document.getElementById('dataTab');
-      dataTab.style.display = show ? 'inline-block' : 'none';
+      try {
+        const oldDataByKey = new Map(data1.map(row => [row[comparisonKey], row]));
+        let rowsToExport = [];
+
+        let filteredData = searchTerm
+          ? data2.filter(row => 
+              Object.values(row).some(value => 
+                value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+              )
+            )
+          : data2;
+
+        if (showModifiedOnly) {
+          const modifiedRows = filteredData.filter(row => {
+            const oldRow = oldDataByKey.get(row[comparisonKey]);
+            if (!oldRow) return true; // New row
+            return headers.some(header => 
+              header !== comparisonKey && oldRow[header] !== row[header]
+            );
+          });
+          rowsToExport.push(...modifiedRows);
+        } else {
+          rowsToExport.push(...filteredData);
+        }
+
+        if (showDeletedOnly) {
+          const newDataKeys = new Set(filteredData.map(row => row[comparisonKey]));
+          const deletedRows = data1.filter(row => !newDataKeys.has(row[comparisonKey])).filter(row =>
+            searchTerm ? Object.values(row).some(value =>
+              value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+            ) : true
+          );
+          rowsToExport.push(...deletedRows);
+        }
+
+        if (rowsToExport.length === 0) {
+          updateMessages(['No rows to export based on current view.'], true);
+          return;
+        }
+
+        // Function to escape CSV values
+        function escapeCSVValue(value) {
+          if (value == null) return '';
+          const str = value.toString();
+          if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+            return `"${str.replace(/"/g, '""')}"`;
+          }
+          return str;
+        }
+
+        // Generate CSV
+        const csvRows = [];
+        // Add headers
+        csvRows.push(headers.map(escapeCSVValue).join(','));
+        // Add data rows
+        rowsToExport.forEach(row => {
+          const rowData = headers.map(header => escapeCSVValue(row[header] || ''));
+          csvRows.push(rowData.join(','));
+        });
+        const csvContent = csvRows.join('\n');
+
+        // Trigger download
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const filename = `exported_data_${timestamp}.csv`;
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        updateMessages([`Export failed: ${error.message}`], true);
+      }
     }
 
     async function readExcelFile(file) {
       try {
+        await loadSheetJS(); // Ensure SheetJS is loaded
         const arrayBuffer = await file.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
 
-        // Get the range of the worksheet
         const range = XLSX.utils.decode_range(worksheet['!ref']);
         const headers = [];
         const firstRow = [];
 
-        // Read the first row to extract headers, ignoring empty cells
         for (let col = range.s.c; col <= range.e.c; col++) {
           const cellAddress = XLSX.utils.encode_cell({ r: range.s.r, c: col });
           const cell = worksheet[cellAddress];
@@ -503,17 +819,14 @@
           firstRow.push(value);
         }
 
-        // Filter out null headers to get non-empty headers
         const validHeaders = headers.filter(h => h !== null);
 
-        // Convert sheet to JSON, starting from the second row to skip headers
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
           header: validHeaders, 
           defval: '',
-          range: { s: { c: range.s.c, r: range.s.r + 1 }, e: range.e } // Start from row 2
+          range: { s: { c: range.s.c, r: range.s.r + 1 }, e: { c: range.e.c, r: range.e.r } }
         });
 
-        // Map data to ensure only valid headers are included
         const mappedData = jsonData.map(row => {
           const newRow = {};
           validHeaders.forEach(header => {
@@ -531,9 +844,14 @@
     function compareHeaders(headers1, headers2, fileName1, fileName2) {
       const uniqueToFile1 = headers1.filter(h => !headers2.includes(h));
       const uniqueToFile2 = headers2.filter(h => !headers1.includes(h));
+      const commonHeaders = headers1.filter(h => headers2.includes(h));
+
+      if (!comparisonKey || !commonHeaders.includes(comparisonKey)) {
+        comparisonKey = commonHeaders.includes('Name') ? 'Name' : commonHeaders[0] || null;
+      }
 
       if (uniqueToFile1.length === 0 && uniqueToFile2.length === 0) {
-        return { isConsistent: true, uniqueToFile1: [], uniqueToFile2: [] };
+        return { isConsistent: true, uniqueToFile1: [], uniqueToFile2: [], commonHeaders };
       }
 
       const messages = ['Warning: The uploaded files have different column headers.'];
@@ -552,20 +870,18 @@
         });
       }
 
-      return { isConsistent: false, messages, uniqueToFile1, uniqueToFile2 };
+      return { isConsistent: false, messages, uniqueToFile1, uniqueToFile2, commonHeaders };
     }
 
     async function processFiles() {
       const fileInput1 = document.getElementById('file1');
       const fileInput2 = document.getElementById('file2');
-      const rowCount1 = document.getElementById('rowCount1');
-      const rowCount2 = document.getElementById('rowCount2');
 
       if (!fileInput1.files.length || !fileInput2.files.length) {
         updateMessages(['Please upload both Excel files.'], true);
         document.getElementById('schema').classList.remove('processed');
-        rowCount1.style.display = 'none';
-        rowCount2.style.display = 'none';
+        document.getElementById('check1').style.display = 'none';
+        document.getElementById('check2').style.display = 'none';
         hideDataView();
         toggleDataTab(false);
         return;
@@ -577,10 +893,8 @@
         data1 = file1Result.data;
         data2 = file2Result.data;
 
-        rowCount1.textContent = `${data1.length} rows`;
-        rowCount2.textContent = `${data2.length} rows`;
-        rowCount1.style.display = 'inline';
-        rowCount2.style.display = 'inline';
+        document.getElementById('check1').style.display = 'inline';
+        document.getElementById('check2').style.display = 'inline';
 
         const headerComparison = compareHeaders(
           file1Result.headers,
@@ -593,7 +907,8 @@
           file1Result.headers,
           file2Result.headers,
           headerComparison.uniqueToFile1 || [],
-          headerComparison.uniqueToFile2 || []
+          headerComparison.uniqueToFile2 || [],
+          headerComparison.commonHeaders || []
         );
 
         if (!headerComparison.isConsistent) {
@@ -610,8 +925,8 @@
       } catch (error) {
         updateMessages([error.message], true);
         document.getElementById('schema').classList.remove('processed');
-        rowCount1.style.display = 'none';
-        rowCount2.style.display = 'none';
+        document.getElementById('check1').style.display = 'none';
+        document.getElementById('check2').style.display = 'none';
         hideDataView();
         toggleDataTab(false);
       }
@@ -671,7 +986,29 @@
     document.getElementById('newDataSearch').addEventListener('input', function() {
       if (data2) {
         const headers = Object.keys(data2[0] || {});
-        renderDataTable(data2, headers, 'newDataTable', this.value);
+        renderDataTable(data2, headers, 'newDataTable', this.value, true);
+      }
+    });
+
+    document.getElementById('modifiedFilter').addEventListener('click', function() {
+      showModifiedOnly = !showModifiedOnly;
+      this.classList.toggle('active');
+      renderSubTabData('NewData');
+    });
+
+    document.getElementById('deletedFilter').addEventListener('click', function() {
+      showDeletedOnly = !showDeletedOnly;
+      this.classList.toggle('active');
+      renderSubTabData('NewData');
+    });
+
+    document.getElementById('exportButton').addEventListener('click', function() {
+      if (data2) {
+        const headers = Object.keys(data2[0] || {});
+        const searchTerm = document.getElementById('newDataSearch').value;
+        exportToCSV(headers, searchTerm);
+      } else {
+        updateMessages(['No data available to export.'], true);
       }
     });
 
