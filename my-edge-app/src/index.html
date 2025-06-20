@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Excel File Processor</title>
+  <!-- Add ExcelJS and FileSaver.js CDNs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -410,6 +413,7 @@
     </div>
   </div>
 
+  <!-- Keep SheetJS for file reading -->
   <script src="https://unpkg.com/xlsx@0.20.3/dist/xlsx.full.min.js"></script>
   <script>
     let data1 = null;
@@ -710,13 +714,18 @@
       }
     }
 
-    function exportToCSV(headers, searchTerm) {
+    async function exportToExcel(headers, searchTerm) {
       if (!data2 || !headers.includes(comparisonKey)) {
         updateMessages(['No data or valid comparison key available for export.'], true);
         return;
       }
 
       try {
+        // Ensure ExcelJS and FileSaver are available
+        if (typeof ExcelJS === 'undefined' || typeof saveAs === 'undefined') {
+          throw new Error('ExcelJS or FileSaver.js not loaded.');
+        }
+
         const oldDataByKey = new Map(data1.map(row => [row[comparisonKey], row]));
         let rowsToExport = [];
 
@@ -756,40 +765,33 @@
           return;
         }
 
-        // Function to escape CSV values
-        function escapeCSVValue(value) {
-          if (value == null) return '';
-          const str = value.toString();
-          if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-            return `"${str.replace(/"/g, '""')}"`;
-          }
-          return str;
-        }
+        // Create a new workbook and worksheet
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Exported Data');
 
-        // Generate CSV
-        const csvRows = [];
-        // Add headers
-        csvRows.push(headers.map(escapeCSVValue).join(','));
-        // Add data rows
+        // Define columns based on headers
+        worksheet.columns = headers.map(header => ({
+          header: header,
+          key: header,
+          width: 20 // Adjust width as needed
+        }));
+
+        // Add rows from the data
         rowsToExport.forEach(row => {
-          const rowData = headers.map(header => escapeCSVValue(row[header] || ''));
-          csvRows.push(rowData.join(','));
+          const rowData = {};
+          headers.forEach(header => {
+            rowData[header] = row[header] || '';
+          });
+          worksheet.addRow(rowData);
         });
-        const csvContent = csvRows.join('\n');
 
-        // Trigger download
+        // Generate the XLSX file as a Blob
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+        // Trigger download with FileSaver.js
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const filename = `exported_data_${timestamp}.csv`;
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', filename);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        saveAs(blob, `exported_data_${timestamp}.xlsx`);
       } catch (error) {
         updateMessages([`Export failed: ${error.message}`], true);
       }
@@ -1006,7 +1008,7 @@
       if (data2) {
         const headers = Object.keys(data2[0] || {});
         const searchTerm = document.getElementById('newDataSearch').value;
-        exportToCSV(headers, searchTerm);
+        exportToExcel(headers, searchTerm);
       } else {
         updateMessages(['No data available to export.'], true);
       }
