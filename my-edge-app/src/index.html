@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Excel File Processor</title>
-  <!-- Add ExcelJS and FileSaver.js CDNs -->
+  <!-- ExcelJS and FileSaver.js for XLSX export -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
   <style>
@@ -254,7 +254,7 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     .data-view-header {
-      margin-bottom: 10px;
+      margin-bottom: 20px;
       display: flex;
       align-items: center;
       gap: 10px;
@@ -267,36 +267,34 @@
       font-size: 14px;
     }
     .modified-tag, .deleted-tag {
-      background-color: #cccccc;
+      background-color: #CCCCCC; /* Grey for inactive state */
       color: #333;
-      border: 1px solid: #999999;
+      border: none; /* Match Choose File button */
       border-radius: 12px;
       padding: 6px 12px;
       font-size: 12px;
       cursor: pointer;
-      transition: background-color: 0.3s;
+      transition: background-color 0.3s;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Light shadow */
     }
     .modified-tag.active {
-      background-color: #4CAF50;
-      color: white;
-      border-color: #388E3C;
+      background-color: #FFF59D; /* Light yellow for active Modified */
+      color: #333;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Maintain shadow */
     }
     .deleted-tag.active {
-      background-color: #8B0000;
-      color: white;
-      border-color: #6B0000;
+      background-color: #FF6666; /* Lighter red for active Deleted */
+      color: #333;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Maintain shadow */
     }
-    .modified-tag:hover {
-      background-color: #b3b3b3;
-    }
-    .deleted-tag:hover {
-      background-color: #b3b3b3;
+    .modified-tag:hover, .deleted-tag:hover {
+      background-color: #B3B3B3; /* Slightly darker grey for inactive hover */
     }
     .modified-tag.active:hover {
-      background-color: #388E3C;
+      background-color: #FFECB3; /* Hover effect for active Modified */
     }
     .deleted-tag.active:hover {
-      background-color: #6B0000;
+      background-color: #FF4D4D; /* Hover effect for active Deleted */
     }
     .export-button {
       background-color: #2196F3;
@@ -413,7 +411,7 @@
     </div>
   </div>
 
-  <!-- Keep SheetJS for file reading -->
+  <!-- SheetJS for reading XLSX files during upload -->
   <script src="https://unpkg.com/xlsx@0.20.3/dist/xlsx.full.min.js"></script>
   <script>
     let data1 = null;
@@ -640,35 +638,54 @@
 
       if (isNewData && data1 && comparisonKey && headers.includes(comparisonKey)) {
         const oldDataByKey = new Map(data1.map(row => [row[comparisonKey], row]));
+        const newDataKeys = new Set(filteredData.map(row => row[comparisonKey]));
         let rowsToDisplay = [];
 
-        if (showModifiedOnly) {
-          const modifiedRows = filteredData.filter(row => {
-            const oldRow = oldDataByKey.get(row[comparisonKey]);
-            if (!oldRow) return true; // New row
-            return headers.some(header => 
-              header !== comparisonKey && oldRow[header] !== row[header]
-            );
-          });
+        // Filter modified rows: new rows or rows with changed values
+        const modifiedRows = filteredData.filter(row => {
+          const oldRow = oldDataByKey.get(row[comparisonKey]);
+          if (!oldRow) return true; // New row
+          return headers.some(header => 
+            header !== comparisonKey && oldRow[header] !== row[header]
+          );
+        });
+
+        // Filter deleted rows: rows in data1 but not in data2
+        const deletedRows = data1.filter(row => !newDataKeys.has(row[comparisonKey])).filter(row =>
+          searchTerm ? Object.values(row).some(value =>
+            value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+          ) : true
+        );
+
+        // Apply filtering based on button states
+        if (showModifiedOnly && !showDeletedOnly) {
+          // Show only modified rows
           rowsToDisplay.push(...modifiedRows);
+        } else if (showDeletedOnly && !showModifiedOnly) {
+          // Show only deleted rows
+          rowsToDisplay.push(...deletedRows);
+        } else if (showModifiedOnly && showDeletedOnly) {
+          // Show both modified and deleted rows
+          rowsToDisplay.push(...modifiedRows, ...deletedRows);
         } else {
+          // Show all rows (no filtering by Modified or Deleted)
           rowsToDisplay.push(...filteredData);
         }
 
-        if (showDeletedOnly) {
-          const newDataKeys = new Set(filteredData.map(row => row[comparisonKey]));
-          const deletedRows = data1.filter(row => !newDataKeys.has(row[comparisonKey])).filter(row =>
-            searchTerm ? Object.values(row).some(value =>
-              value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
-            ) : true
-          );
-          rowsToDisplay.push(...deletedRows);
-        }
+        // Remove duplicates by comparisonKey (in case a row appears in both modified and deleted)
+        const uniqueRows = new Map();
+        rowsToDisplay.forEach(row => {
+          const key = row[comparisonKey];
+          if (!uniqueRows.has(key)) {
+            uniqueRows.set(key, row);
+          }
+        });
+        rowsToDisplay = Array.from(uniqueRows.values());
 
         rowsToDisplay.forEach(row => {
           const dataRow = document.createElement('tr');
           const isNewRow = !oldDataByKey.has(row[comparisonKey]);
-          const isDeletedRow = !filteredData.some(r => r[comparisonKey] === row[comparisonKey]);
+          const isDeletedRow = !newDataKeys.has(row[comparisonKey]);
 
           if (isNewRow) {
             dataRow.classList.add('new-row');
@@ -727,6 +744,7 @@
         }
 
         const oldDataByKey = new Map(data1.map(row => [row[comparisonKey], row]));
+        const newDataKeys = new Set(data2.map(row => row[comparisonKey]));
         let rowsToExport = [];
 
         let filteredData = searchTerm
@@ -737,28 +755,46 @@
             )
           : data2;
 
-        if (showModifiedOnly) {
-          const modifiedRows = filteredData.filter(row => {
-            const oldRow = oldDataByKey.get(row[comparisonKey]);
-            if (!oldRow) return true; // New row
-            return headers.some(header => 
-              header !== comparisonKey && oldRow[header] !== row[header]
-            );
-          });
+        // Filter modified rows: new rows or rows with changed values
+        const modifiedRows = filteredData.filter(row => {
+          const oldRow = oldDataByKey.get(row[comparisonKey]);
+          if (!oldRow) return true; // New row
+          return headers.some(header => 
+            header !== comparisonKey && oldRow[header] !== row[header]
+          );
+        });
+
+        // Filter deleted rows: rows in data1 but not in data2
+        const deletedRows = data1.filter(row => !newDataKeys.has(row[comparisonKey])).filter(row =>
+          searchTerm ? Object.values(row).some(value =>
+            value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+          ) : true
+        );
+
+        // Apply filtering based on button states
+        if (showModifiedOnly && !showDeletedOnly) {
+          // Export only modified rows
           rowsToExport.push(...modifiedRows);
+        } else if (showDeletedOnly && !showModifiedOnly) {
+          // Export only deleted rows
+          rowsToExport.push(...deletedRows);
+        } else if (showModifiedOnly && showDeletedOnly) {
+          // Export both modified and deleted rows
+          rowsToExport.push(...modifiedRows, ...deletedRows);
         } else {
+          // Export all rows (no filtering by Modified or Deleted)
           rowsToExport.push(...filteredData);
         }
 
-        if (showDeletedOnly) {
-          const newDataKeys = new Set(filteredData.map(row => row[comparisonKey]));
-          const deletedRows = data1.filter(row => !newDataKeys.has(row[comparisonKey])).filter(row =>
-            searchTerm ? Object.values(row).some(value =>
-              value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
-            ) : true
-          );
-          rowsToExport.push(...deletedRows);
-        }
+        // Remove duplicates by comparisonKey
+        const uniqueRows = new Map();
+        rowsToExport.forEach(row => {
+          const key = row[comparisonKey];
+          if (!uniqueRows.has(key)) {
+            uniqueRows.set(key, row);
+          }
+        });
+        rowsToExport = Array.from(uniqueRows.values());
 
         if (rowsToExport.length === 0) {
           updateMessages(['No rows to export based on current view.'], true);
